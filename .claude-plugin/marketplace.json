@@ -14,6 +14,11 @@
       "name": "design-polish",
       "source": "./plugins/design-polish",
       "description": "Design polishing with WCAG accessibility checks"
+    },
+    {
+      "name": "auto-complete-loop",
+      "source": "./plugins/auto-complete-loop",
+      "description": "AI 코딩 완주 프레임워크 - Ralph Loop + DoD/SPEC/TDD 검증"
     }
   ]
 }
