@@ -89,7 +89,9 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
     FAILURE_REASONS=""
 
     # 1. progress 파일 검증 (존재하는 경우)
+    VERIFIED_PROGRESS_FILES=()
     for PROGRESS_FILE in .claude-*progress*.json; do
+      [[ -f "$PROGRESS_FILE" ]] && VERIFIED_PROGRESS_FILES+=("$PROGRESS_FILE")
       if [[ -f "$PROGRESS_FILE" ]]; then
         # documents 배열이 있는 경우: 모든 문서가 completed인지 확인
         HAS_DOCUMENTS=$(jq 'has("documents")' "$PROGRESS_FILE" 2>/dev/null || echo "false")
@@ -159,6 +161,11 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
     if [[ "$VERIFICATION_PASSED" = "true" ]]; then
       echo "Auto Complete Loop: Promise verified. All conditions met."
       rm -f "$RALPH_STATE_FILE"
+      # 검증 완료된 progress 파일 정리
+      for pf in "${VERIFIED_PROGRESS_FILES[@]}"; do
+        rm -f "$pf"
+      done
+      rm -f ".claude-verification.json"
       exit 0
     else
       echo "Auto Complete Loop: Promise detected but verification failed: ${FAILURE_REASONS}Continuing loop..."
