@@ -1,14 +1,18 @@
 ---
 name: design-polish
-description: 디자인 레퍼런스 기반 폴리싱. 트렌드 검색, Gap 분석, WCAG 접근성 체크, 개선안 도출. /design-polish 명령으로 실행.
+description: 디자인 지식 기반 + 시각 비교 + WCAG 접근성 체크 통합 폴리싱. 서비스 유형별 UI 추론, 66개 스타일/96개 색상/57개 타이포 검색, 트렌드 분석, Gap 분석, 8단계 우선순위 개선안 도출. /design-polish 명령으로 실행.
 allowed-tools: Read, Write, Glob, Grep, Bash, WebSearch, Edit
-version: "1.0.0"
+version: "2.0.0"
 ---
 
-# 디자인 폴리싱 스킬
+# 디자인 폴리싱 스킬 v2.0
 
-디자인 레퍼런스 사이트에서 트렌드를 검색하고, 현재 프로젝트와 비교하여 개선안을 도출합니다.
-WCAG 기본 접근성 체크를 포함합니다.
+디자인 지식 기반(서비스 유형별 규칙, 컴포넌트 체크리스트, UX 규칙) + 실시간 시각 비교(Puppeteer 스크린샷) + WCAG 자동 검사(axe-core) + 트렌드 검색(WebSearch) 통합 폴리싱.
+
+### 지식 기반 리소스
+- **knowledge/**: 서비스 유형별 UI 규칙, 컴포넌트 체크리스트, UX 규칙 (마크다운 직접 Read)
+- **data/**: 66개 디자인 스타일, 96개 색상 팔레트, 57개 타이포그래피, 13개 기술 스택 가이드 (JSON + BM25 검색)
+- **scripts/search.cjs**: Node.js BM25 검색 엔진
 
 ## 인수
 
@@ -36,21 +40,25 @@ WCAG 기본 접근성 체크를 포함합니다.
 ```
 전제조건 확인
     ↓
-0단계: 프로젝트 분석 + 현재 스크린샷 캡처 [Glob, Read, Bash]
+0단계: 프로젝트 분석 + 서비스 유형 감지 + 스크린샷 캡처 [Glob, Read, Bash]
     ↓
 1단계: WCAG 접근성 체크 (axe-core) [Bash, Read]
+    ↓
+1.5단계: 디자인 지식 로딩 [Read, Bash]
     ↓
 2단계: 레퍼런스 사이트 선택
     ↓
 3단계: 트렌드 검색 → 레퍼런스 캡처 [WebSearch, Bash]
     ↓
-4단계: Gap 분석 (이미지 비교 + 접근성 비교) [Read]
+4단계: Gap 분석 (시각 비교 + 지식 기반) [Read]
     ↓
-5단계: 개선안 도출
+5단계: 개선안 도출 (8단계 우선순위)
     ↓
 6단계: 결과 출력
     ↓
-7단계: 코드 적용 (--apply 시) [Edit]
+7단계: 코드 적용 (--apply 시) [Edit, Bash]
+    ↓
+Pre-delivery 체크리스트
 ```
 
 ---
@@ -104,7 +112,7 @@ node --version
 
 ---
 
-## 0단계: 프로젝트 분석
+## 0단계: 프로젝트 분석 + 서비스 유형 감지
 
 **사용 도구**: `Glob`, `Read`, `Bash`
 
@@ -113,6 +121,35 @@ node --version
 - 디렉토리 구조: `src/`, `components/`, `pages/`, `app/` 등
 - 프레임워크: React, Vue, Flutter, Next.js, Nuxt 등
 - 스타일링: CSS, Tailwind, styled-components, CSS Modules, SCSS 등
+
+### 서비스 유형 감지
+
+프로젝트 코드에서 서비스 유형 신호를 자동 감지합니다:
+
+| 감지 신호 | 서비스 유형 |
+|----------|------------|
+| 결제/장바구니/상품/checkout 코드 | Online Shop |
+| 인증+대시보드+subscription | SaaS Platform |
+| 의료 용어, HIPAA, patient | Healthcare Service |
+| 차트+거래+지갑+crypto | Finance & Trading |
+| 학습+퀴즈+진도+course | Education & Learning |
+| 포트폴리오+작품+projects | Portfolio |
+| .gov, 접근성 중심 | Government Service |
+| chat+AI+prompt+stream | AI & Chatbot |
+| 메뉴+예약+food | Food & Restaurant |
+| booking+destination+travel | Travel & Booking |
+| property+listing+map | Real Estate |
+| game+score+level+player | Gaming |
+| article+news+breaking | News & Media |
+| feed+like+share+follow | Social Media |
+| workout+fitness+health | Fitness & Gym |
+| 럭셔리+프리미엄+브랜드+high-end | Luxury Brand |
+| 에이전시+케이스스터디+creative+팀 | Creative Agency |
+| 웰니스+명상+마음챙김+calm | Wellness & Health |
+| admin+대시보드+analytics+지표 | Admin Dashboard |
+| IDE+터미널+코드에디터+syntax+CLI | Developer Tool |
+
+**감지 방법**: `Grep`으로 주요 코드 파일에서 키워드 빈도 분석, 가장 높은 점수의 서비스 유형을 선택합니다.
 
 ### 디자인 파일 탐지
 
@@ -190,6 +227,53 @@ Read(".design-polish/accessibility/wcag-report.json")
 
 ---
 
+## 1.5단계: 디자인 지식 로딩
+
+**사용 도구**: `Read`, `Bash`
+
+0단계에서 감지된 서비스 유형/기술 스택 정보를 기반으로 디자인 지식을 로딩합니다.
+
+### 마크다운 직접 로딩 (필수 — 매 실행시)
+
+```
+Read("${CLAUDE_PLUGIN_ROOT}/knowledge/industry-rules.md")
+Read("${CLAUDE_PLUGIN_ROOT}/knowledge/component-checklist.md")
+Read("${CLAUDE_PLUGIN_ROOT}/knowledge/ux-rules.md")
+```
+
+### 스크립트 검색 (감지된 서비스 유형/키워드 기반)
+
+```bash
+# 0단계에서 감지된 서비스 유형 키워드를 사용
+# 예: SaaS Platform 감지 시
+node "${CLAUDE_PLUGIN_ROOT}/scripts/search.cjs" --domain style "saas dashboard minimal"
+
+# 예: Online Shop 감지 시
+node "${CLAUDE_PLUGIN_ROOT}/scripts/search.cjs" --domain color "ecommerce shopping"
+
+# 예: Healthcare Service 감지 시
+node "${CLAUDE_PLUGIN_ROOT}/scripts/search.cjs" --domain typography "medical clean accessible"
+```
+
+```bash
+# 기술 스택 가이드 (코드 적용 시에만)
+# 예: React 프로젝트 감지 시
+node "${CLAUDE_PLUGIN_ROOT}/scripts/search.cjs" --domain stack --stack react "accessibility aria"
+```
+
+### 검색 예시
+
+| 감지된 서비스 유형 | 스타일 검색 | 색상 검색 | 타이포 검색 |
+|-------------------|-----------|----------|-----------|
+| SaaS Platform | "saas dashboard minimal" | "saas professional trust" | "modern professional clean" |
+| Online Shop | "ecommerce vibrant card" | "ecommerce shopping" | "ecommerce clean shopping" |
+| Healthcare Service | "healthcare accessible calm" | "healthcare calm" | "medical clean accessible" |
+| Finance & Trading | "fintech dark glass" | "fintech crypto" | "financial trust" |
+| Education & Learning | "education playful friendly" | "education playful" | "playful friendly" |
+| Wellness & Health | "wellness organic biophilic" | "wellness nature calm" | "calming soft rounded" |
+
+---
+
 ## 2단계: 레퍼런스 사이트 선택
 
 **사용 도구**: 판단 로직
@@ -249,7 +333,7 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/capture.cjs" ref "https://site1.com" ref1 "h
 
 ---
 
-## 4단계: Gap 분석
+## 4단계: Gap 분석 (시각 비교 + 지식 기반)
 
 **사용 도구**: `Read`
 
@@ -262,15 +346,25 @@ Read(".design-polish/screenshots/reference-hero.png")
 
 ### 분석 영역
 
-| 영역 | 분석 항목 |
-|------|----------|
-| 레이아웃 | 그리드, 여백, 정보 계층, CTA 위치 |
-| 타이포그래피 | 폰트, 크기, 행간, 웨이트 |
-| 색상 | 팔레트, 대비, 다크모드 지원 |
-| 인터랙션 | 호버, 전환, 애니메이션, 로딩 |
-| 컴포넌트 | 버튼, 카드, 입력, 모달, 토스트 |
-| 상태 | 로딩/성공/실패/빈 상태 처리 |
-| **접근성** | **WCAG 위반 항목, 터치 타겟, 포커스 표시** |
+| 영역 | 분석 항목 | 지식 기반 참조 |
+|------|----------|---------------|
+| 레이아웃 | 그리드, 여백, 정보 계층, CTA 위치 | ux-rules.md → Layout |
+| 타이포그래피 | 폰트, 크기, 행간, 웨이트 | search.cjs typography 검색 결과 |
+| 색상 | 팔레트, 대비, 다크모드 지원 | search.cjs color 검색 결과 |
+| 인터랙션 | 호버, 전환, 애니메이션, 로딩 | ux-rules.md → Animation |
+| 컴포넌트 | 버튼, 카드, 입력, 모달, 토스트 | component-checklist.md |
+| 상태 | 로딩/성공/실패/빈 상태 처리 | ux-rules.md → Loading & Error |
+| **접근성** | **WCAG 위반 항목, 터치 타겟, 포커스 표시** | ux-rules.md → Accessibility |
+| **서비스 유형 적합성** | **industry-rules.md 기준 스타일/색상 일치 여부** | industry-rules.md |
+| **스타일 매칭** | **search.cjs 검색 결과와 현재 디자인 비교** | search.cjs style 검색 결과 |
+
+### 지식 기반 분석 (추가)
+
+1. **서비스 유형 적합성**: industry-rules.md에서 해당 서비스 유형의 추천 스타일/색상과 현재 디자인 비교
+2. **컴포넌트 품질**: component-checklist.md의 Do/Don't 체크 — 사용 중인 컴포넌트별 위반 확인
+3. **UX 규칙 준수**: ux-rules.md의 각 카테고리별 패턴 체크
+4. **스타일 매칭**: search.cjs 검색 결과의 추천 스타일과 현재 디자인 비교
+5. **색상/타이포 매칭**: 검색된 팔레트/폰트 페어링 vs 현재 사용 중인 값 비교
 
 ### 플랫폼별 추가 기준
 
@@ -281,16 +375,25 @@ Read(".design-polish/screenshots/reference-hero.png")
 
 ---
 
-## 5단계: 개선안 도출
+## 5단계: 개선안 도출 (8단계 우선순위)
 
 ### 우선순위 분류
 
-| 우선순위 | 기준 | 예시 |
-|---------|------|------|
-| **Critical** | WCAG 위반 (심각) | 대비 부족, 터치 타겟 미달 |
-| High | 사용성/접근성 문제, 명확한 트렌드 뒤처짐 | CTA 불명확, 네비게이션 |
-| Medium | 시각적 개선 기회 | 여백 조정, 애니메이션 추가 |
-| Low | 선택적 폴리싱 | 마이크로 인터랙션 |
+| 우선순위 | 카테고리 | 영향 | 예시 |
+|---------|---------|------|------|
+| **P1** | 접근성 (WCAG 위반) | CRITICAL | 대비 부족, 터치 타겟 미달, 포커스 미표시 |
+| **P2** | 터치/인터랙션 | CRITICAL | cursor 미지정, 타겟 크기 미달, hover 없음 |
+| **P3** | 성능 | HIGH | 이미지 미최적화, reduced-motion 미지원 |
+| **P4** | 레이아웃/반응형 | HIGH | CLS, 모바일 깨짐, 뷰포트 이슈 |
+| **P5** | 타이포/색상 | MEDIUM | 행간 부족, 서비스 유형 부적합 색상, 폰트 미매칭 |
+| **P6** | 애니메이션 | MEDIUM | 트랜지션 누락, 과도한 모션, 타이밍 이슈 |
+| **P7** | 스타일 적합성 | MEDIUM | 서비스 유형별 추천 스타일과 불일치 |
+| **P8** | 차트/데이터 | LOW | 차트 접근성, 데이터 시각화 개선 |
+
+각 개선안에는 다음 정보를 포함합니다:
+- 대상 파일 경로
+- 구체적인 변경 내용
+- 참조 근거 (knowledge 파일, search.cjs 결과, WCAG 기준 등)
 
 ---
 
@@ -302,6 +405,7 @@ Read(".design-polish/screenshots/reference-hero.png")
 ## 프로젝트 요약
 
 [프레임워크], [스타일링 방식] 기반 [프로젝트 유형]
+감지된 서비스 유형: [서비스 유형명]
 
 ## WCAG 접근성 체크
 
@@ -311,6 +415,23 @@ Read(".design-polish/screenshots/reference-hero.png")
 | 터치 타겟 | O 통과 | |
 | 텍스트 크기 | ! 1건 주의 | caption: 11px |
 
+## 서비스 유형별 적합성
+
+| 항목 | 추천 (industry-rules) | 현재 | 일치 |
+|------|----------------------|------|------|
+| 스타일 | Glassmorphism + Flat | Flat Design | 부분 일치 |
+| 색상 무드 | Trust blue + Accent contrast | Blue + Grey | 일치 |
+| 타이포 | Professional + Hierarchy | ... | ... |
+| 핵심 효과 | Subtle hover (200-250ms) | 호버 없음 | 불일치 |
+
+## 컴포넌트 체크 결과
+
+| 컴포넌트 | 위반 항목 | 심각도 |
+|---------|----------|--------|
+| Button | 터치 타겟 38px (최소 44px) | HIGH |
+| Card | 호버 효과 없음 | MEDIUM |
+| Input | placeholder만 사용, label 없음 | HIGH |
+
 ## 트렌드 요약
 
 - [핵심 트렌드 1]
@@ -319,31 +440,46 @@ Read(".design-polish/screenshots/reference-hero.png")
 
 ## Gap 분석
 
-| 영역 | 현재 | 트렌드 | Gap |
-|------|------|--------|-----|
+| 영역 | 현재 | 추천 (지식 기반 + 트렌드) | Gap |
+|------|------|--------------------------|-----|
 | 레이아웃 | ... | ... | ... |
-| 타이포그래피 | ... | ... | ... |
-| 색상 | ... | ... | ... |
+| 타이포그래피 | ... | [추천 폰트 페어링 + URL] | ... |
+| 색상 | ... | [추천 팔레트 HEX 코드] | ... |
 | 인터랙션 | ... | ... | ... |
 | 컴포넌트 | ... | ... | ... |
 | 접근성 | 3건 위반 | WCAG AA 준수 | 색상 대비 수정 필요 |
+| 스타일 적합성 | ... | [추천 스타일명] | ... |
 
-## 개선안
+## 추천 리소스 (search.cjs 결과)
 
-### Critical (접근성)
+- **추천 스타일**: [스타일명] — [cssHints]
+- **추천 색상**: Primary [HEX], Secondary [HEX], CTA [HEX], BG [HEX]
+- **추천 폰트**: [Heading Font] + [Body Font] — [Google Fonts URL]
 
+## 개선안 (8단계 우선순위)
+
+### P1: 접근성 (CRITICAL)
 - [ ] btn-primary 색상 대비 수정 (src/components/Button.tsx)
 
-### High
-
+### P2: 터치/인터랙션 (CRITICAL)
 - [ ] [개선안 + 대상 파일]
 
-### Medium
-
+### P3: 성능 (HIGH)
 - [ ] [개선안 + 대상 파일]
 
-### Low
+### P4: 레이아웃/반응형 (HIGH)
+- [ ] [개선안 + 대상 파일]
 
+### P5: 타이포/색상 (MEDIUM)
+- [ ] [개선안 + 대상 파일]
+
+### P6: 애니메이션 (MEDIUM)
+- [ ] [개선안 + 대상 파일]
+
+### P7: 스타일 적합성 (MEDIUM)
+- [ ] [개선안 + 대상 파일]
+
+### P8: 차트/데이터 (LOW)
 - [ ] [개선안 + 대상 파일]
 ```
 
@@ -351,14 +487,25 @@ Read(".design-polish/screenshots/reference-hero.png")
 
 ## 7단계: 코드 적용 (--apply 옵션시만)
 
-**사용 도구**: `Edit`
+**사용 도구**: `Edit`, `Bash`
+
+### 스택 가이드 참조
+
+코드 적용 전, 감지된 기술 스택의 가이드라인을 참조합니다:
+
+```bash
+# 기술 스택 가이드 검색 (적용할 영역 키워드로)
+# 예: React 프로젝트 감지 시
+node "${CLAUDE_PLUGIN_ROOT}/scripts/search.cjs" --domain stack --stack react "accessibility aria"
+```
 
 ### 적용 순서
 
-1. Critical (접근성) 우선순위부터 순차 적용
-2. High 우선순위 적용
-3. 각 수정 후 파일 저장
-4. 적용 결과 요약 출력
+1. P1 (접근성 CRITICAL) 우선순위부터 순차 적용
+2. P2~P4 (CRITICAL/HIGH) 적용
+3. P5~P7 (MEDIUM) — 사용자 확인 후 적용
+4. 각 수정 후 파일 저장
+5. 적용 결과 요약 출력
 
 ### 적용하지 않는 것
 
@@ -422,3 +569,37 @@ Read(".design-polish/screenshots/reference-hero.png")
 | 사이트 | URL | 특징 |
 |--------|-----|------|
 | Dribbble | dribbble.com | 버튼, 카드 등 디테일 |
+
+---
+
+## Pre-delivery 체크리스트
+
+코드 적용 후 (--apply 시) 또는 최종 결과 보고 전에 다음을 확인합니다:
+
+### 시각 품질
+- [ ] 색상 대비 4.5:1 이상 (WCAG AA)
+- [ ] 일관된 border-radius (8px/12px/16px 중 택일)
+- [ ] 일관된 spacing scale (예: 4/8/12/16/24/32px)
+- [ ] 폰트 계층 명확 (h1 > h2 > h3 > body > caption)
+
+### 인터랙션
+- [ ] 모든 클릭 가능 요소에 `cursor: pointer`
+- [ ] 호버 상태 (150-200ms transition)
+- [ ] 포커스 링 (2-3px, 키보드 사용자)
+- [ ] 로딩 상태 (스켈레톤 또는 스피너)
+- [ ] 에러 상태 (인라인 메시지 + 아이콘)
+
+### 라이트/다크 모드
+- [ ] 다크 모드 전환시 깨지는 요소 없음
+- [ ] 다크 모드 색상 대비 유지
+
+### 레이아웃
+- [ ] 모바일 (320px~) 깨지지 않음
+- [ ] 태블릿 (768px) 적절한 배치
+- [ ] 데스크톱 (1024px+) 최대 너비 제한
+
+### 접근성 최종 점검
+- [ ] axe-core 위반 0건 (또는 justified)
+- [ ] 키보드 네비게이션 가능
+- [ ] 스크린 리더 호환 (ARIA 레이블)
+- [ ] `prefers-reduced-motion` 지원
