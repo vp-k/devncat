@@ -20,32 +20,10 @@ argument-hint: <definition(overview.md)> <doclist(README.md)>
 
 ## Ralph Loop 자동 설정 (최우선 실행)
 
-스킬 시작 시 `.claude/ralph-loop.local.md` 파일을 생성하여 Ralph Loop을 활성화합니다.
+스킬 시작 시 스크립트로 Ralph Loop 파일을 생성합니다:
 
-### 생성할 파일 내용:
-
-```yaml
----
-active: true
-iteration: 1
-max_iterations: 0
-completion_promise: "ALL_DOCS_VERIFIED"
-started_at: "[현재시간 ISO]"
----
-
-이전 작업을 이어서 진행합니다.
-`.claude-progress.json`을 읽고 상태를 확인하세요.
-특히 `handoff` 필드를 먼저 읽어 이전 iteration의 맥락을 복구하세요.
-
-1. completed 문서는 건너뛰세요
-2. in_progress 문서가 있으면 해당 문서부터 재개
-3. pending 문서가 있으면 다음 pending 문서 시작
-4. 모든 문서가 completed이고 전체 검증을 통과하면 <promise>ALL_DOCS_VERIFIED</promise> 출력
-
-검증 규칙:
-- .claude-verification.json에 최신 빌드/테스트 결과가 기록되어야 함
-- .claude-progress.json의 dod 체크리스트가 모두 checked여야 함
-- 조건 미충족 시 절대 <promise> 태그를 출력하지 마세요
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh init-ralph "ALL_DOCS_VERIFIED" ".claude-progress.json"
 ```
 
 ### Ralph Loop 완료 조건
@@ -260,16 +238,16 @@ codex exec --skip-git-repo-check '## 품질 게이트 실패 해결
 
 ### 검증 결과 기록 (강제)
 
-품질 게이트 실행 후 결과를 `.claude-verification.json`에 기록:
-```json
-{
-  "timestamp": "ISO 시간",
-  "build": { "command": "...", "exitCode": 0, "summary": "성공" },
-  "typeCheck": { "command": "...", "exitCode": 0, "summary": "0 errors" },
-  "lint": { "command": "...", "exitCode": 0, "summary": "0 warnings" },
-  "test": { "command": "...", "exitCode": 0, "passed": 42, "failed": 0 }
-}
+스크립트로 품질 게이트를 일괄 실행하고 결과를 기록합니다:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh quality-gate --progress-file .claude-progress.json
 ```
+
+스크립트가 자동으로:
+1. 프로젝트 유형을 감지하고 빌드/타입/린트/테스트 명령을 결정
+2. 각 명령을 실행하고 결과를 `.claude-verification.json`에 기록 (stop-hook 호환 포맷)
+3. progress 파일의 DoD를 업데이트
 
 **규칙:**
 - 코드 변경 후 반드시 재실행 및 재기록
@@ -382,19 +360,18 @@ Task(subagent_type="general-purpose", prompt="
 - 에러 발생 파일
 - 에러 메시지의 핵심 부분 (줄 번호는 무시)
 
-**에러 발생 시 `.claude-progress.json` 업데이트:**
+**에러 발생 시 스크립트로 에러 기록 및 반복 판별:**
 
-```json
-"errorHistory": {
-  "currentError": {
-    "type": "TypeError",
-    "file": "src/auth.ts",
-    "message": "Property 'user' does not exist on type 'Session'",
-    "count": 2
-  },
-  "attempts": ["nullable 타입 추가", "타입 가드 추가"]
-}
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh record-error \
+  --file "src/auth.ts" --type "TypeError" --msg "Property 'user' does not exist on type 'Session'" \
+  --progress-file .claude-progress.json
 ```
+
+스크립트 exit code로 다음 액션 결정:
+- `0`: 계속 시도 (3회 미만)
+- `2`: 3회 초과 → codex 해결 요청 필요
+- `3`: 5회 초과 → 사용자 개입 필요
 
 ### 빌드/테스트 실패 처리
 
@@ -556,11 +533,9 @@ codex exec --skip-git-repo-check '## 반복 에러 해결 요청
 - `testing` -> `implementing`: 품질 게이트 실패 시 (수정 필요)
 - `reviewing` -> `completed`: 리뷰 통과 + 권장사항 처리 완료
 
-### 강제 규칙 (절대 위반 금지)
+### 강제 규칙
 
-1. **단일 in_progress**: 동시에 하나의 문서만 in_progress 상태
-2. **완료 전 진행 금지**: in_progress 작업이 completed 되기 전 다음 작업 시작 금지
-3. **스킵 금지**: 어떤 이유로도 pending 작업을 건너뛰지 않음
+> `shared-rules.md`의 공통 강제 규칙 + 증거 기반 완료 선언 규칙을 따릅니다.
 
 ### 파일 저장 시점 (최소화)
 
@@ -603,99 +578,15 @@ codex exec --skip-git-repo-check '## 반복 에러 해결 요청
 
 ### Handoff (Iteration 종료 전 필수)
 
-세션을 종료하기 전에 `.claude-progress.json`의 `handoff` 필드를 반드시 업데이트합니다:
+> `shared-rules.md`의 Handoff 업데이트 규칙을 따릅니다. progress 파일: `.claude-progress.json`
 
-```json
-"handoff": {
-  "lastIteration": 3,
-  "completedInThisIteration": "auth.md의 T-001(users 테이블), T-002(POST /register) 구현 완료",
-  "nextSteps": "auth.md의 T-003(POST /login) 구현 시작. 이전 T-002에서 만든 UserRepository 재사용",
-  "keyDecisions": [
-    "bcrypt 사용 (argon2 대신 - 의존성 최소화 위해)",
-    "refresh token 7일 만료 (정의 문서의 보안 원칙 기반)"
-  ],
-  "warnings": "rate limiting 미구현 - auth.md 마지막 티켓에서 처리 예정",
-  "currentApproach": "Repository 패턴 + Service 레이어 분리. src/repositories/, src/services/ 구조"
-}
-```
+### 증거 기반 완료 선언
 
-**handoff 필드 설명:**
-- `completedInThisIteration`: 이번 iteration에서 완료한 작업 요약
-- `nextSteps`: 다음 iteration에서 바로 시작할 작업 + 필요한 맥락
-- `keyDecisions`: 이번 iteration에서 내린 설계 결정과 이유
-- `warnings`: 주의사항, 알려진 이슈, 나중에 처리할 기술 부채
-- `currentApproach`: 현재 사용 중인 아키텍처/패턴/구조
+> `shared-rules.md`의 증거 기반 완료 선언 규칙을 따릅니다. 추가: Fresh Context Verification도 통과해야 완료.
 
-**Iteration 시작 시 handoff 읽기:**
-1. `.claude-progress.json` 로드
-2. `handoff.nextSteps`를 최우선으로 확인 -> 여기서 시작
-3. `handoff.keyDecisions`로 이전 결정 맥락 복구
-4. `handoff.warnings`로 주의사항 인지
-5. `handoff.currentApproach`로 코드 구조 맥락 복구
+## 컨텍스트 관리
 
-### 증거 기반 완료 선언 (필수)
-
-**완료 선언 전 반드시 실행 결과 확인:**
-
-- 빌드 성공 로그 (exit code 0 확인)
-- 테스트 통과 로그 (PASSED 개수 확인)
-- 린트 통과 로그
-- `.claude-verification.json`에 기록 완료
-- Fresh Context Verification 통과
-
-**금지 (실행 없이 선언):**
-
-- "아마 통과할 것입니다"
-- "테스트가 성공할 것입니다"
-- 이전 실행 결과 재사용
-
-**원칙:** 로그 없으면 완료 없음
-
-## 컨텍스트 관리 (Prompt Too Long 방지)
-
-### 압축 트리거 (턴 기반 + 에러 감지)
-
-**자동 `/compact` 실행 시점:**
-
-| 조건 | 트리거 |
-|------|--------|
-| 단일 문서 구현 | 15턴 이상 |
-| "prompt too long" 에러 | 즉시 |
-| 동일 오류 해결 후 | 즉시 |
-| 전체 검증 시작 전 | 즉시 |
-
-**에러 패턴 감지:**
-
-- "prompt too long", "context length exceeded" 메시지 감지 시 즉시 `/compact`
-- `/compact` 후에도 반복 시:
-  1. 현재 문서 진행 상황 `.claude-progress.json`에 저장
-  2. handoff 필드 업데이트
-  3. 세션을 자연스럽게 종료 (Stop Hook이 다음 iteration 자동 시작)
-
-**턴 카운팅:**
-
-- 턴 = Claude 응답 1회
-- codex 호출도 1턴으로 카운트
-- 파일 읽기/쓰기는 턴에 포함 안 함
-- **턴 카운트는 메모리로 관리** (파일에 매번 저장하지 않음)
-- `/compact` 실행 시에만 `turnCount`와 `lastCompactAt` 파일에 기록
-
-### 작업 중 메모리 관리
-
-- 각 문서 구현 완료 시 해당 토론 내용은 요약으로만 기억
-- 이전 문서의 전체 코드/토론을 누적하지 않음
-- 현재 작업 문서에만 집중, 필요시 다른 파일은 다시 읽기
-
-### 진행 상황 추적 (파일 기반)
-
-- `.claude-progress.json` 파일로 문서별 상태 관리
-- 생성된 파일 목록은 `completedFiles` 배열에 기록
-
-### codex-cli 호출 시 컨텍스트 절약
-
-- 코드 전체가 아닌 **핵심 부분만** 전달 (최대 100줄)
-- 정의 문서도 **핵심 원칙만** 요약해서 전달
-- 이전 토론 내용 포함하지 않음 (각 호출은 독립적)
+> `shared-rules.md`의 컨텍스트 관리 + 외부 AI 자체 탐색 규칙을 따릅니다.
 
 ### 대용량 작업 시
 

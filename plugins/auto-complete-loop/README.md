@@ -9,24 +9,44 @@ Claude Code 플러그인으로 설치:
 claude plugins install /path/to/auto-complete-loop
 ```
 
-설치 후 기존 `~/.claude/commands/`의 동명 파일(implement-docs-auto.md, plan-docs-auto-v2.md, polish-for-release-v2.md)을 삭제하세요 (충돌 방지).
+설치 후 기존 `~/.claude/commands/`의 동명 파일(implement-docs-auto.md, plan-docs-auto-gemini.md, polish-for-release-gemini.md)을 삭제하세요 (충돌 방지).
 
 ## 명령어
 
 ### `/implement-docs-auto <definition> <doclist>`
 기획 문서를 실제 코드로 구현합니다. Ralph Loop이 자동 활성화되어 완료까지 반복합니다.
 
-### `/plan-docs-auto-v2 <definition> <doclist>`
+### `/plan-docs-auto <definition> <doclist>`
+기획 문서를 2자 자동 토론(codex-cli, Claude Code)으로 완성합니다.
+
+### `/plan-docs-auto-gemini <definition> <doclist>`
 기획 문서를 3자 자동 토론(codex-cli, Gemini, Claude Code)으로 완성합니다.
 
-### `/polish-for-release-v2 [definition] [doclist]`
-프로덕션 릴리즈 전 폴리싱을 수행합니다.
+### `/polish-for-release [definition] [doclist]`
+프로덕션 릴리즈 전 폴리싱을 수행합니다. codex-cli와 Claude Code 2자 토론.
+
+### `/polish-for-release-gemini [definition] [doclist]`
+프로덕션 릴리즈 전 폴리싱을 수행합니다. codex-cli, Gemini, Claude Code 3자 토론.
 
 ### `/code-review-loop [--rounds N | --goal "조건"] <scope>`
-코드 리뷰를 자동 반복 수행합니다. codex-cli(SEC/ERR/DATA) + gemini-cli(PERF/CODE) 독립 리뷰 후 Claude Code가 검증/수정.
+코드 리뷰를 자동 반복 수행합니다. codex-cli가 SEC/ERR/DATA/PERF/CODE 전 관점에서 독립 리뷰 후 Claude Code가 검증/수정.
 - 기본: 3라운드 리뷰→수정 반복
 - `--rounds N`: N라운드 반복
 - `--goal "CRITICAL/HIGH 0개"`: 목표 달성까지 반복 (최대 10라운드)
+
+### `/code-review-loop-gemini [--rounds N | --goal "조건"] <scope>`
+코드 리뷰를 자동 반복 수행합니다. codex-cli(SEC/ERR/DATA) + gemini-cli(PERF/CODE) 3자 독립 리뷰 후 Claude Code가 검증/수정.
+- 기본: 3라운드 리뷰→수정 반복
+- `--rounds N`: N라운드 반복
+- `--goal "CRITICAL/HIGH 0개"`: 목표 달성까지 반복 (최대 10라운드)
+
+### `/full-auto <요구사항>`
+전체 프로젝트 라이프사이클을 자동 수행합니다.
+- Phase 0: 요구사항 확장 + 사용자 승인 (유일한 상호작용)
+- Phase 1: codex 토론으로 기획 문서 완성
+- Phase 2: TDD 기반 코드 구현
+- Phase 3: codex 코드 리뷰 (3라운드)
+- Phase 4: 릴리즈 검증 및 폴리싱
 
 ## 핵심 메커니즘
 
@@ -49,12 +69,35 @@ auto-complete-loop/
 ├── .claude-plugin/plugin.json           # 플러그인 메타데이터
 ├── commands/
 │   ├── implement-docs-auto.md           # 기획 문서 → 코드 구현
-│   ├── plan-docs-auto-v2.md             # 기획 문서 3자 토론 완성
-│   ├── polish-for-release-v2.md         # 릴리즈 전 폴리싱
-│   └── code-review-loop.md             # 코드 리뷰 자동 반복
+│   ├── plan-docs-auto.md               # 기획 문서 2자 토론 완성
+│   ├── plan-docs-auto-gemini.md         # 기획 문서 3자 토론 완성 (gemini 포함)
+│   ├── polish-for-release.md            # 릴리즈 전 폴리싱 (2자)
+│   ├── polish-for-release-gemini.md     # 릴리즈 전 폴리싱 (3자, gemini 포함)
+│   ├── code-review-loop.md             # 코드 리뷰 자동 반복 (2자)
+│   ├── code-review-loop-gemini.md       # 코드 리뷰 자동 반복 (3자, gemini 포함)
+│   └── full-auto.md                     # 기획→구현→검수 올인원
 ├── hooks/
 │   └── stop-hook.sh                     # Stop hook (Ralph Loop 확장)
+├── scripts/
+│   └── shared-gate.sh                   # 범용 품질 게이트 + 유틸리티
 ├── rules/shared-rules.md               # 모든 스킬 공통 규칙
 ├── templates/                           # DONE.md, SPEC.md 템플릿
 └── README.md
 ```
+
+## shared-gate.sh 서브커맨드
+
+| 서브커맨드 | 용도 |
+|-----------|------|
+| `init --template <type>` | progress JSON 초기화 (full-auto/plan/implement/review/polish) |
+| `init-ralph <promise> <progress_file> [max]` | Ralph Loop 파일 생성 |
+| `status` | 현재 상태 요약 출력 |
+| `update-step <step> <status>` | 단계 상태 전이 (동적 검증) |
+| `quality-gate` | 빌드/타입/린트/테스트 일괄 실행 + verification.json 기록 |
+| `record-error --file --type --msg` | 에러 반복 판별 + errorHistory 업데이트 |
+| `check-tools` | codex/gemini CLI 존재 확인 |
+| `find-debug-code [dir]` | console.log/print/debugger 탐색 |
+| `doc-consistency [dir]` | 문서 간 일관성 검사 |
+| `doc-code-check [dir]` | 문서↔코드 매칭 |
+
+글로벌 옵션: `--progress-file <path>` (미지정 시 자동 탐지)

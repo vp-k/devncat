@@ -89,7 +89,7 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
     FAILURE_REASONS=""
 
     # 1. progress 파일 검증 (존재하는 경우)
-    for PROGRESS_FILE in .claude-progress.json .claude-plan-progress.json .claude-polish-progress.json .claude-review-loop-progress.json; do
+    for PROGRESS_FILE in .claude-*progress*.json; do
       if [[ -f "$PROGRESS_FILE" ]]; then
         # documents 배열이 있는 경우: 모든 문서가 completed인지 확인
         HAS_DOCUMENTS=$(jq 'has("documents")' "$PROGRESS_FILE" 2>/dev/null || echo "false")
@@ -143,7 +143,7 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
     if [[ -f ".claude-verification.json" ]]; then
       # exitCode 필드들 수집 (존재하는 항목만)
       ALL_VERIFIED=$(jq '
-        [to_entries[] | select(.value | type == "object" and has("exitCode")) | .value.exitCode]
+        [to_entries[] | select(.value | type == "object" and has("exitCode") and .exitCode != null) | .value.exitCode]
         | if length == 0 then false
           else all(. == 0)
           end

@@ -35,32 +35,10 @@ codex-cli, Gemini, Claude Code가 **순차적으로 자동 토론**하여 모든
 
 ## Ralph Loop 자동 설정 (최우선 실행)
 
-스킬 시작 시 `.claude/ralph-loop.local.md` 파일을 생성하여 Ralph Loop을 활성화합니다.
+스킬 시작 시 스크립트로 Ralph Loop 파일을 생성합니다:
 
-### 생성할 파일 내용:
-
-```yaml
----
-active: true
-iteration: 1
-max_iterations: 0
-completion_promise: "RELEASE_READY"
-started_at: "[현재시간 ISO]"
----
-
-이전 작업을 이어서 진행합니다.
-`.claude-polish-progress.json`을 읽고 상태를 확인하세요.
-특히 `handoff` 필드를 먼저 읽어 이전 iteration의 맥락을 복구하세요.
-
-1. completed 단계는 건너뛰세요
-2. in_progress 단계가 있으면 해당 단계부터 재개
-3. pending 단계가 있으면 다음 pending 단계 시작
-4. 모든 단계가 completed이고 전체 검증을 통과하면 <promise>RELEASE_READY</promise> 출력
-
-검증 규칙:
-- .claude-verification.json에 최신 빌드/테스트 결과가 기록되어야 함
-- .claude-polish-progress.json의 모든 단계 status가 completed여야 함
-- 조건 미충족 시 절대 <promise> 태그를 출력하지 마세요
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh init-ralph "RELEASE_READY" ".claude-polish-progress.json"
 ```
 
 ### Ralph Loop 완료 조건
@@ -105,6 +83,13 @@ Stop Hook이 완료 조건 미달을 감지하면 자동으로 다음 iteration 
   "currentStep": "기획 대비 검토",
   "turnCount": 0,
   "lastCompactAt": 0,
+  "dod": {
+    "build_pass": { "checked": false, "evidence": null },
+    "test_pass": { "checked": false, "evidence": null },
+    "security_review": { "checked": false, "evidence": null },
+    "docs_complete": { "checked": false, "evidence": null },
+    "final_verification": { "checked": false, "evidence": null }
+  },
   "handoff": {
     "lastIteration": null,
     "completedInThisIteration": "",
@@ -115,6 +100,13 @@ Stop Hook이 완료 조건 미달을 감지하면 자동으로 다음 iteration 
   }
 }
 ```
+
+**각 단계 완료 시 dod 업데이트:**
+- 3단계(빌드 검증) 완료 → `dod.build_pass` checked + evidence
+- 4단계(테스트 검증) 완료 → `dod.test_pass` checked + evidence
+- 5단계(보안 검토) 완료 → `dod.security_review` checked + evidence
+- 6단계(문서화 확인) 완료 → `dod.docs_complete` checked + evidence
+- 8단계(최종 검증) 완료 → `dod.final_verification` checked + evidence
 
 **상태 전이:**
 
@@ -233,15 +225,13 @@ README($2)가 있으면 기획 문서 목록 추출 후:
 
 ### 검증 결과 기록
 
-결과를 `.claude-verification.json`에 기록:
-```json
-{
-  "timestamp": "ISO 시간",
-  "build": { "command": "...", "exitCode": 0, "summary": "성공" },
-  "typeCheck": { "command": "...", "exitCode": 0, "summary": "0 errors" },
-  "lint": { "command": "...", "exitCode": 0, "summary": "0 warnings" }
-}
+스크립트로 빌드/타입/린트/테스트를 일괄 실행하고 결과를 기록합니다:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh quality-gate --progress-file .claude-polish-progress.json
 ```
+
+스크립트가 자동으로 프로젝트 유형을 감지하고, 결과를 `.claude-verification.json`에 기록하며, progress 파일의 DoD를 업데이트합니다.
 
 단계 완료 시 evidence 기록:
 ```json
@@ -344,7 +334,8 @@ README($2)가 있으면 기획 문서 목록 추출 후:
    - .env.example 최신화
 
 4. **불필요한 파일 정리**
-   - 디버그 코드, console.log 등 제거
+   - 디버그 코드 탐색: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh find-debug-code`
+   - 발견된 디버그 코드 제거 (console.log, print 등)
    - 주석 처리된 코드 정리
    - 미사용 import 제거
 
@@ -361,12 +352,13 @@ README($2)가 있으면 기획 문서 목록 추출 후:
 
 ## 8단계: 최종 검증
 
-모든 단계 완료 후 최종 확인:
+모든 단계 완료 후 스크립트로 최종 검증:
 
-1. 빌드 재실행 -> 성공
-2. 테스트 재실행 -> 전체 통과
-3. 린트 재실행 -> 경고 없음
-4. 결과를 `.claude-verification.json`에 기록
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh quality-gate --progress-file .claude-polish-progress.json
+```
+
+스크립트가 빌드/타입/린트/테스트를 재실행하고 결과를 `.claude-verification.json`에 기록합니다.
 
 **증거 기반 완료 선언 (필수):**
 
@@ -388,28 +380,7 @@ README($2)가 있으면 기획 문서 목록 추출 후:
 
 ### Handoff (Iteration 종료 전 필수)
 
-세션을 종료하기 전에 `.claude-polish-progress.json`의 `handoff` 필드를 반드시 업데이트합니다:
-
-```json
-"handoff": {
-  "lastIteration": 2,
-  "completedInThisIteration": "빌드 검증 + 테스트 검증 완료. 3개 린트 오류 수정, 2개 실패 테스트 수정",
-  "nextSteps": "보안 검토 시작. npm audit에서 moderate 취약점 2개 발견 - 검토 필요",
-  "keyDecisions": [
-    "린트 규칙: no-console은 warn으로 유지 (production 로거 사용)",
-    "테스트: E2E는 제외하고 유닛/통합 테스트만 검증"
-  ],
-  "warnings": "bcrypt 패키지에 moderate 취약점 - 보안 검토에서 처리 필요",
-  "currentApproach": "Group별 순차 처리. 현재 Group 2 완료, Group 3 시작 예정"
-}
-```
-
-**Iteration 시작 시 handoff 읽기:**
-1. `.claude-polish-progress.json` 로드
-2. `handoff.nextSteps`를 최우선으로 확인 -> 여기서 시작
-3. `handoff.keyDecisions`로 이전 결정 맥락 복구
-4. `handoff.warnings`로 주의사항 인지
-5. `handoff.currentApproach`로 진행 구조 맥락 복구
+> `shared-rules.md`의 Handoff 업데이트 규칙을 따릅니다. progress 파일: `.claude-polish-progress.json`
 
 ## 완료 보고
 
@@ -508,49 +479,9 @@ EOF
 3. **Medium**: 성능 개선, 코드 품질
 4. **Low**: 형식, 스타일, 사소한 개선
 
-## 컨텍스트 관리 (Prompt Too Long 방지)
+## 컨텍스트 관리
 
-### 압축 트리거 (턴 기반 + 에러 감지)
-
-**자동 `/compact` 실행 시점:**
-
-| 조건 | 트리거 |
-| ---- | ------ |
-| 단일 단계 토론 | 10턴 이상 |
-| "prompt too long" 에러 | 즉시 |
-| 단계 완료 후 | 다음 단계 시작 전 |
-
-**에러 패턴 감지:**
-
-- "prompt too long", "context length exceeded" 메시지 감지 시 즉시 `/compact`
-- `/compact` 후에도 반복 시:
-  1. 현재 단계 진행 상황 `.claude-polish-progress.json`에 저장
-  2. handoff 필드 업데이트
-  3. 세션을 자연스럽게 종료 (Stop Hook이 다음 iteration 자동 시작)
-
-**턴 카운팅:**
-
-- 턴 = Claude 응답 1회
-- codex/gemini 호출도 각 1턴으로 카운트
-- 파일 읽기/쓰기는 턴에 포함 안 함
-- `/compact` 실행 시에만 `turnCount`와 `lastCompactAt` 파일에 기록
-
-### 작업 중 메모리 관리
-
-- 각 단계 완료 시 해당 토론 내용은 요약으로만 기억
-- 이전 단계의 전체 코드/토론을 누적하지 않음
-- 현재 작업 단계에만 집중, 필요시 다른 파일은 다시 읽기
-
-### 진행 상황 추적
-
-- `.claude-polish-progress.json` 파일로 단계별 상태 관리 (파일 기반)
-- 수정된 파일 목록만 유지
-
-### 외부 AI 호출 시
-
-- 코드 전체가 아닌 핵심 부분만 전달 (최대 100줄)
-- 정의 문서도 핵심 원칙만 요약해서 전달
-- 이전 토론 내용은 결론만 요약해서 전달
+> `shared-rules.md`의 컨텍스트 관리 + 외부 AI 자체 탐색 규칙을 따릅니다.
 
 ## 사용자 개입 시점 (최소화)
 
@@ -567,32 +498,15 @@ EOF
 
 **주의**: 자동 수정 가능한 문제는 **Claude Code가 즉시 수정**. 사용자에게 묻지 않음.
 
-## 강제 규칙 (절대 위반 금지)
+## 강제 규칙
 
-1. **단일 in_progress**: 동시에 하나의 단계만 `in_progress` 상태
-2. **완료 전 진행 금지**: `in_progress` 단계가 `completed` 되기 전 다음 단계 시작 금지
-3. **스킵 금지**: 어떤 이유로도 `pending` 단계를 건너뛰지 않음
-4. **중간 종료 금지**: 모든 단계가 `completed` 될 때까지 종료하지 않음
-5. **상태 파일 동기화**: 단계 상태 변경 시 반드시 `.claude-polish-progress.json` 업데이트
+> `shared-rules.md`의 공통 강제 규칙 + 증거 기반 완료 선언 규칙을 따릅니다.
 
-## 포기 방지 규칙 (강제)
-
-**절대 금지:**
-
-- "이 단계는 완료할 수 없습니다"
-- "사용자가 직접 확인해주세요"
-- 모든 단계 완료 전 종료
-- 진행 중인 단계를 포기하고 다음으로 넘어가기
-
-**강제 행동:**
-
-- 막히면 -> 토론 라운드 추가
-- 7라운드 초과 시 -> Critical/High 피드백만 처리하고 마무리
-- 모든 AI 제외 시 -> Claude Code가 단독으로 결정하고 마무리
-- 컨텍스트 부족 시 -> `/compact` 실행 후 계속 진행
-- 모든 단계 완료까지 계속 진행
-
-**원칙:** 8단계(최종 검증)가 완료될 때까지 멈추지 않음
+**polish-gemini 추가 규칙:**
+- 막히면 → 토론 라운드 추가
+- 7라운드 초과 시 → Critical/High 피드백만 처리하고 마무리
+- 모든 AI 제외 시 → Claude Code가 단독으로 결정하고 마무리
+- **원칙:** 8단계(최종 검증)가 완료될 때까지 멈추지 않음
 
 ## 외부 서비스 설정 필요시
 
