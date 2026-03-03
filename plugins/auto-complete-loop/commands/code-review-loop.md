@@ -212,6 +212,18 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh quality-gate --progress-file .
 
 ---
 
+### 5.5단계: 수정 사항 커밋
+
+품질 게이트 통과 후, 이번 라운드의 수정 사항을 커밋합니다.
+
+**커밋 조건**: 4단계에서 실제로 코드를 수정한 경우에만 커밋 (수정 없으면 생략)
+
+```bash
+git commit -am "[auto] 코드 리뷰 Round {currentRound} 수정 완료"
+```
+
+---
+
 ## 6단계: 라운드 결과 기록 + 종료 조건 평가
 
 ### 6-1. 결과 기록

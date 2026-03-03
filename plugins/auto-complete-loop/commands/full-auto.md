@@ -589,6 +589,16 @@ finding 없으면 NO_FINDINGS. 마지막 줄: FINDING_COUNT: N'
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh quality-gate --progress-file .claude-full-auto-progress.json
 ```
 
+### Step 3-3.5: 수정 사항 커밋
+
+품질 게이트 통과 후, 이번 라운드의 수정 사항을 커밋합니다.
+
+**커밋 조건**: Step 3-2에서 실제로 코드를 수정한 경우에만 (수정 없으면 생략)
+
+```bash
+git commit -am "[auto] Phase 3 코드 리뷰 Round {currentRound} 수정 완료"
+```
+
 ### Step 3-4: 반복
 
 3라운드 또는 CRITICAL/HIGH 0개 달성까지 반복.
@@ -711,6 +721,14 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh smoke-check --progress-file .c
 artifact-check 실패(SOFT_FAIL) 시 빌드 재실행.
 smoke-check 실패(SOFT_FAIL) 시 서버 시작 스크립트 확인 후 재시도.
 서버리스/라이브러리 프로젝트(package.json의 main/exports만 있고 start 스크립트 없음, 또는 serverless.yml/vercel.json 존재)는 스킵 허용.
+
+### Step 4-6.6: 폴리싱 결과 커밋
+
+모든 검증과 수정이 완료된 코드를 커밋합니다.
+
+```bash
+git commit -am "[auto] 최종 검증 및 폴리싱 완료"
+```
 
 ### Step 4-7: DoD 최종 확인 + 완료 보고
 
