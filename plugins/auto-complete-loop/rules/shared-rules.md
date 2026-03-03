@@ -97,6 +97,21 @@ record-error exit code:
 - 범위 축소는 핵심 경로(인증, CRUD 기본, 빌드) 제외
 - "사용자가 직접 확인해주세요" 금지 (L5 전까지)
 
+## 의존성 관리 (패키지 설치)
+
+의존성 추가/제거 시 반드시 **패키지 매니저 명령어**를 사용합니다. 의존성 파일 직접 편집은 금지입니다.
+
+| 플랫폼 | 추가 명령어 | 제거 명령어 | 직접 편집 금지 파일 |
+|--------|-----------|-----------|-----------------|
+| Node.js | `npm install <pkg>` | `npm uninstall <pkg>` | `package.json` |
+| Flutter | `flutter pub add <pkg>` | `flutter pub remove <pkg>` | `pubspec.yaml` |
+| Python | `pip install <pkg>` 또는 `uv add <pkg>` | `pip uninstall <pkg>` | `requirements.txt`, `pyproject.toml` |
+| Go | `go get <pkg>` | `go mod tidy` | `go.mod` |
+
+**이유**: 패키지 매니저가 버전 해석, lock 파일 갱신, post-install 스크립트 실행을 자동 처리합니다.
+
+**예외**: 패키지 매니저 명령어로 표현할 수 없는 의존성 구성(예: 버전 override, 복합 조건)에 한해 직접 편집 허용.
+
 ## 강제 규칙 (모든 스킬 공통)
 1. **단일 in_progress**: 동시에 하나의 문서/단계만 `in_progress` 상태
 2. **완료 전 진행 금지**: `in_progress` 작업이 `completed` 되기 전 다음 작업 시작 금지

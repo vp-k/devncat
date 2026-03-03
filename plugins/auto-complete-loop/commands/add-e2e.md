@@ -283,13 +283,10 @@ npm init playwright@latest -- --yes --quiet
 
 **Flutter → integration_test:**
 - `integration_test/` 디렉토리 생성
-- `pubspec.yaml`에 의존성 추가:
-  ```yaml
-  dev_dependencies:
-    integration_test:
-      sdk: flutter
-    flutter_test:
-      sdk: flutter
+- 의존성 설치:
+  ```bash
+  flutter pub add 'dev:integration_test:{"sdk":"flutter"}'
+  flutter pub add 'dev:flutter_test:{"sdk":"flutter"}'
   ```
 - `integration_test/app_test.dart` 기본 파일 생성
 
