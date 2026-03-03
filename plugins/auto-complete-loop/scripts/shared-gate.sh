@@ -49,7 +49,8 @@ jq_inplace() {
 detect_progress_file() {
   for f in .claude-full-auto-progress.json .claude-progress.json \
            .claude-plan-progress.json .claude-polish-progress.json \
-           .claude-review-loop-progress.json .claude-e2e-progress.json; do
+           .claude-review-loop-progress.json .claude-e2e-progress.json \
+           .claude-doc-check-progress.json; do
     [[ -f "$f" ]] && echo "$f" && return 0
   done
   return 1
@@ -119,7 +120,8 @@ cmd_init() {
     review)     target_file=".claude-review-loop-progress.json" ;;
     polish)     target_file=".claude-polish-progress.json" ;;
     e2e)        target_file=".claude-e2e-progress.json" ;;
-    *)          die "Unknown template: $template. Valid: full-auto, plan, implement, review, polish, e2e" ;;
+    doc-check)  target_file=".claude-doc-check-progress.json" ;;
+    *)          die "Unknown template: $template. Valid: full-auto, plan, implement, review, polish, e2e, doc-check" ;;
   esac
 
   if [[ -f "$target_file" ]]; then
@@ -347,6 +349,34 @@ ENDJSON
     "tests_written": { "checked": false, "evidence": null },
     "e2e_pass": { "checked": false, "evidence": null },
     "build_pass": { "checked": false, "evidence": null }
+  },
+  "handoff": {
+    "lastIteration": null,
+    "completedInThisIteration": "",
+    "nextSteps": "",
+    "keyDecisions": [],
+    "warnings": "",
+    "currentApproach": ""
+  }
+}
+ENDJSON
+      ;;
+    doc-check)
+      cat > "$target_file" <<ENDJSON
+{
+  "project": $safe_project,
+  "created": "$(timestamp)",
+  "status": "in_progress",
+  "docsDir": "docs/",
+  "steps": [
+    {"name": "구조적 검사", "status": "pending", "evidence": {}},
+    {"name": "의미적 검증", "status": "pending", "evidence": {}},
+    {"name": "최종 확인", "status": "pending", "evidence": {}}
+  ],
+  "dod": {
+    "doc_consistency": { "checked": false, "evidence": null },
+    "doc_code_check": { "checked": false, "evidence": null },
+    "semantic_review": { "checked": false, "evidence": null }
   },
   "handoff": {
     "lastIteration": null,
@@ -1351,14 +1381,14 @@ cmd_doc_consistency() {
   local refs
   refs=$(grep -rhoP '(?:참조|see|ref):\s*[\w-]+\.md' "$docs_dir"/*.md 2>/dev/null || true)
   if [[ -n "$refs" ]]; then
-    echo "$refs" | while read -r ref; do
+    while read -r ref; do
       local target
       target=$(echo "$ref" | grep -oP '[\w-]+\.md')
       if [[ ! -f "$docs_dir/$target" ]]; then
         echo "  BROKEN REF: $ref -> $docs_dir/$target not found"
         ((issues++)) || true
       fi
-    done
+    done <<< "$refs"
   else
     echo "  No explicit cross-references found"
   fi
@@ -1571,7 +1601,7 @@ main() {
       echo ""
       echo "Subcommands:"
       echo "  init [--template <type>] [project] [req]  - Initialize progress JSON"
-      echo "    Templates: full-auto, plan, implement, review, polish, e2e"
+      echo "    Templates: full-auto, plan, implement, review, polish, e2e, doc-check"
       echo "  init-ralph <promise> <progress_file> [max] - Create Ralph Loop file"
       echo "  status                                     - Show current status"
       echo "  update-step <step> <status>                - Transition step state"

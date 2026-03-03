@@ -48,6 +48,12 @@ claude plugins install /path/to/auto-complete-loop
 - Phase 3: codex 코드 리뷰 (3라운드)
 - Phase 4: 릴리즈 검증 및 폴리싱
 
+### `/check-docs [docs_dir]`
+문서 정합성을 검증합니다. doc↔doc 일관성 + doc↔code 매칭을 스크립트+AI로 검증하고 자동 수정.
+- 1단계: 스크립트 구조적 검사 (doc-consistency + doc-code-check)
+- 2단계: codex 의미적 검증 (데이터 모델, API, 용어 일관성)
+- 3단계: 최종 확인 (스크립트 재실행)
+
 ### `/add-e2e [docs_dir]`
 기존 프로젝트에 E2E 테스트를 추가합니다.
 - 문서 경로 지정 시: 문서 분석 → 문서↔코드 정합성 → 시나리오 도출
@@ -82,7 +88,8 @@ auto-complete-loop/
 │   ├── code-review-loop.md             # 코드 리뷰 자동 반복 (2자)
 │   ├── code-review-loop-gemini.md       # 코드 리뷰 자동 반복 (3자, gemini 포함)
 │   ├── full-auto.md                     # 기획→구현→검수 올인원
-│   └── add-e2e.md                       # 기존 프로젝트에 E2E 테스트 추가
+│   ├── add-e2e.md                       # 기존 프로젝트에 E2E 테스트 추가
+│   └── check-docs.md                    # 문서 정합성 검증 (doc↔doc + doc↔code)
 ├── hooks/
 │   └── stop-hook.sh                     # Stop hook (Ralph Loop 확장)
 ├── scripts/
@@ -96,7 +103,7 @@ auto-complete-loop/
 
 | 서브커맨드 | 용도 |
 |-----------|------|
-| `init --template <type>` | progress JSON 초기화 (full-auto/plan/implement/review/polish/e2e) |
+| `init --template <type>` | progress JSON 초기화 (full-auto/plan/implement/review/polish/e2e/doc-check) |
 | `init-ralph <promise> <progress_file> [max]` | Ralph Loop 파일 생성 |
 | `status` | 현재 상태 요약 출력 |
 | `update-step <step> <status>` | 단계 상태 전이 (동적 검증) |
