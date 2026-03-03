@@ -51,7 +51,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh init-ralph "FULL_AUTO_COMPLETE
 - Phase 0/1: 1~2개 문서 처리
 - Phase 2: 1~2개 문서 또는 3~5개 티켓
 - Phase 3: 1 리뷰 라운드
-- Phase 4: 검증 단계 전체
+- Phase 4: 검증 단계 전체 (검증은 순차 파이프라인이므로 분할 불가)
 - 처리 완료 후 진행 상태를 파일에 저장하고 세션을 자연스럽게 종료
 - Stop Hook이 완료 조건 미달을 감지하면 자동으로 다음 iteration 시작
 
@@ -61,22 +61,37 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh init-ralph "FULL_AUTO_COMPLETE
 
 ```bash
 # Progress 초기화
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh init "프로젝트명" "요구사항"
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh init "프로젝트명" "요구사항" --progress-file .claude-full-auto-progress.json
 
 # 현재 상태 확인 (JSON 파싱 토큰 절약)
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh status
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh status --progress-file .claude-full-auto-progress.json
 
 # Phase 전이
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_1 completed
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_1 completed --progress-file .claude-full-auto-progress.json
 
 # 품질 게이트 일괄 실행 (4개 명령어 → 1개)
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh quality-gate
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh quality-gate --progress-file .claude-full-auto-progress.json
 
 # 문서 간 일관성 검사
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh doc-consistency docs/
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh doc-consistency docs/ --progress-file .claude-full-auto-progress.json
 
 # 문서↔코드 일관성 검사
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh doc-code-check docs/
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh doc-code-check docs/ --progress-file .claude-full-auto-progress.json
+
+# E2E 테스트 실행 (프레임워크 자동 감지)
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh e2e-gate --progress-file .claude-full-auto-progress.json
+
+# 시크릿 스캔 (HARD_FAIL)
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh secret-scan --progress-file .claude-full-auto-progress.json
+
+# 빌드 아티팩트 검증 (SOFT_FAIL)
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh artifact-check --progress-file .claude-full-auto-progress.json
+
+# 서버 기동 + 헬스체크 (SOFT_FAIL)
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh smoke-check --progress-file .claude-full-auto-progress.json
+
+# 에러 기록 (레벨별 에스컬레이션)
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh record-error --file <f> --type <t> --msg <m> --level L1 --action "시도한 행동" --progress-file .claude-full-auto-progress.json
 ```
 
 **원칙**: 스크립트 = 구조적/기계적 검사, AI = 의미적 판단. 스크립트로 먼저 거르고, AI는 스크립트가 못 잡는 의미적 문제만 처리.
@@ -187,7 +202,7 @@ AskUserQuestion으로 계획 승인/수정 요청:
 ### Step 0-5: Progress 초기화
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh init "프로젝트명" "원본 요구사항"
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh init "프로젝트명" "원본 요구사항" --progress-file .claude-full-auto-progress.json
 ```
 
 이후 progress 파일에 Phase 0 outputs를 jq로 기록:
@@ -203,8 +218,8 @@ DoD 업데이트:
 
 Phase 전이:
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_0 completed
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_1 in_progress
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_0 completed --progress-file .claude-full-auto-progress.json
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_1 in_progress --progress-file .claude-full-auto-progress.json
 ```
 
 ---
@@ -282,7 +297,7 @@ codex exec --skip-git-repo-check '## 역할
 ### Step 1-5: 구조적 일관성 검사 (스크립트)
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh doc-consistency docs/
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh doc-consistency docs/ --progress-file .claude-full-auto-progress.json
 ```
 
 스크립트가 발견한 구조적 불일치를 Claude가 수정.
@@ -314,8 +329,8 @@ docs/ 디렉토리의 모든 문서를 직접 읽고 교차 검증하세요.
 - progress 파일의 `consistencyChecks.doc_vs_doc` 업데이트
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_1 completed
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_2 in_progress
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_1 completed --progress-file .claude-full-auto-progress.json
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_2 in_progress --progress-file .claude-full-auto-progress.json
 ```
 
 DoD 업데이트:
@@ -387,15 +402,52 @@ progress 파일의 `phases.phase_2.context`에 아키텍처 맥락 저장:
    - **백엔드**: TDD (테스트 먼저 → 최소 구현 → 리팩토링)
    - **프론트엔드**: 일반 구현 (타입 체크 기본)
 
-3. **에러 복구** (implement-docs-auto 동일)
-   - Claude 직접 수정: 최대 3회
-   - 동일 에러 3회 반복 → codex-cli 해결 요청 + 롤백
-   - 동일 에러 5회 반복 → 사용자 개입 요청
+3. **에러 복구 (레벨별 에스컬레이션)**
+
+   에러 레벨 분류 (`shared-rules.md` 참조):
+   | 레벨 | 분류 | 예시 |
+   |------|------|------|
+   | L0 | environment | 패키지 미설치, PATH, 권한 |
+   | L1 | build | 컴파일 에러, 번들 실패 |
+   | L2 | type | 타입 불일치, 인터페이스 누락 |
+   | L3 | runtime | 테스트 실패, 런타임 에러 |
+   | L4 | quality | 린트, 코드 스타일, 경고 |
+   | L5 | escalation | 모든 레벨 소진, 사용자 개입 필요 |
+
+   - **L0: 즉시 수정** (3회): 같은 방법 내 수정 (import, 타입, 간단한 로직)
+   - **L1: 다른 방법** (3회): 같은 설계, 다른 구현 (라이브러리 교체, 패턴 변경)
+   - **L2: codex 분석** (1회): codex-cli 근본 원인 분석 + `git stash` 안전 지점
+   - **L3: 완전히 다른 접근법** (3회): 설계/아키텍처 수준 전환 (codex 분석 기반)
+   - **L4: 범위 축소** (1회): 최소 동작 버전 + `scopeReductions` 기록
+   - **L5: 사용자 개입**: 선택지 제시
+
+   레벨 전환 시 `record-error --reset-count`로 카운터 리셋.
+   에러 레벨 추적: `record-error --level L0-L4`로 진행/회귀 판별.
+
+   record-error exit code:
+   - `0`: 현재 레벨 예산 내 → 계속 시도
+   - `1`: 현재 레벨 예산 소진 → 다음 레벨로 에스컬레이트
+   - `2`: L2 도달 → codex 분석 필요
+   - `3`: L5 도달 → 사용자 개입 필요
+
+### E2E 테스트 작성
+
+구현과 함께 E2E 테스트를 작성합니다. 핵심 사용자 플로우만 커버합니다 (모든 엣지 케이스 불필요).
+
+**프레임워크 선택 (프로젝트 유형별 자동):**
+- Web (package.json): Playwright → `npm init playwright@latest` 로 설정
+- Flutter (pubspec.yaml): `integration_test/` 디렉토리에 Flutter integration test 작성
+- Mobile (React Native 등): Maestro → `.maestro/` 디렉토리에 YAML 플로우 작성
+
+**작성 원칙:**
+- 핵심 사용자 시나리오 3-5개만 (가입→로그인→핵심기능→결과확인 등)
+- 헤드리스 실행 가능해야 함 (GUI 의존 금지)
+- 테스트 데이터는 테스트 내에서 셋업/클린업
 
 ### Step 2-5: 품질 게이트 (스크립트)
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh quality-gate
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh quality-gate --progress-file .claude-full-auto-progress.json
 ```
 
 실패 시 Claude가 수정 → 재실행.
@@ -447,7 +499,7 @@ finding 없으면 NO_FINDINGS.'
 - `doc-code-check` + Codex 의미적 검토 통과
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh doc-code-check docs/
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh doc-code-check docs/ --progress-file .claude-full-auto-progress.json
 ```
 
 ```bash
@@ -471,8 +523,8 @@ docs/ 디렉토리의 기획 문서와 실제 구현 코드를 비교하세요.
 ```
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_2 completed
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_3 in_progress
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_2 completed --progress-file .claude-full-auto-progress.json
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_3 in_progress --progress-file .claude-full-auto-progress.json
 ```
 
 DoD 업데이트:
@@ -534,7 +586,7 @@ finding 없으면 NO_FINDINGS. 마지막 줄: FINDING_COUNT: N'
 수정 후 빌드/테스트 확인:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh quality-gate
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh quality-gate --progress-file .claude-full-auto-progress.json
 ```
 
 ### Step 3-4: 반복
@@ -557,8 +609,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh quality-gate
 - 품질 게이트 통과
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_3 completed
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_4 in_progress
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_3 completed --progress-file .claude-full-auto-progress.json
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_4 in_progress --progress-file .claude-full-auto-progress.json
 ```
 
 DoD 업데이트:
@@ -576,10 +628,34 @@ DoD 업데이트:
 ### Step 4-1: 최종 품질 게이트
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh quality-gate
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh quality-gate --progress-file .claude-full-auto-progress.json
 ```
 
-### Step 4-2: 보안 스캔 (Codex)
+### Step 4-2: E2E 테스트 검증
+
+1. 기존 E2E 테스트 점검 (Phase 2에서 작성한 테스트를 최종 코드 기준으로 보완):
+   - Phase 2에서 작성한 E2E 테스트를 실행하여 현재 상태 확인
+   - 코드 리뷰(Phase 3)로 변경된 코드에 맞춰 테스트 업데이트
+   - 누락된 핵심 시나리오가 있으면 추가
+   - 실패하는 테스트가 있으면 원인 분석 후 수정
+
+2. E2E 실행:
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh e2e-gate --progress-file .claude-full-auto-progress.json
+```
+
+3. 프레임워크 미감지 시(exit 2): Phase 2에서 E2E를 작성하지 못한 경우. 이 시점에서 Phase 2의 "E2E 테스트 작성" 지침에 따라 프레임워크 설정 + 테스트 작성 후 재실행.
+
+### Step 4-2.5: 시크릿 스캔 (자동화)
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh secret-scan --progress-file .claude-full-auto-progress.json
+```
+
+**HARD_FAIL**: 시크릿 발견 시 즉시 제거/환경변수 이동 후 재스캔.
+이 게이트를 통과해야 Step 4-3(codex 보안 스캔)으로 진행.
+
+### Step 4-3: 보안 스캔 (Codex)
 
 ```bash
 codex exec --skip-git-repo-check '## 보안 스캔
@@ -599,7 +675,7 @@ codex exec --skip-git-repo-check '## 보안 스캔
 
 보안 이슈 발견 시 Claude가 즉시 수정.
 
-### Step 4-3: 문서화 확인 (Claude)
+### Step 4-4: 문서화 확인 (Claude)
 
 1. **README 완성도**
    - 프로젝트 설명, 설치 방법, 실행 방법
@@ -612,20 +688,31 @@ codex exec --skip-git-repo-check '## 보안 스캔
 
 3. 부족한 부분 보완
 
-### Step 4-4: 코드 정리 (Claude)
+### Step 4-5: 코드 정리 (Claude)
 
 1. 디버그 코드 제거 (console.log, print 등)
 2. 주석 처리된 코드 정리
 3. 미사용 import 제거
 4. 불필요한 파일 정리
 
-### Step 4-5: 최종 품질 게이트 + verification.json 기록
+### Step 4-6: 최종 품질 게이트 + verification.json 기록
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh quality-gate
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh quality-gate --progress-file .claude-full-auto-progress.json
 ```
 
-### Step 4-6: DoD 최종 확인 + 완료 보고
+### Step 4-6.5: 아티팩트 + 스모크 검증
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh artifact-check --progress-file .claude-full-auto-progress.json
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh smoke-check --progress-file .claude-full-auto-progress.json
+```
+
+artifact-check 실패(SOFT_FAIL) 시 빌드 재실행.
+smoke-check 실패(SOFT_FAIL) 시 서버 시작 스크립트 확인 후 재시도.
+서버리스/라이브러리 프로젝트(package.json의 main/exports만 있고 start 스크립트 없음, 또는 serverless.yml/vercel.json 존재)는 스킵 허용.
+
+### Step 4-7: DoD 최종 확인 + 완료 보고
 
 모든 DoD 항목 최종 확인:
 ```json
@@ -636,7 +723,9 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh quality-gate
   "build_pass": { "checked": true },
   "test_pass": { "checked": true },
   "code_review_pass": { "checked": true },
-  "security_review": { "checked": true }
+  "security_review": { "checked": true },
+  "secret_scan": { "checked": true },
+  "e2e_pass": { "checked": true }
 }
 ```
 
@@ -666,7 +755,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh quality-gate
 ```
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_4 completed
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_4 completed --progress-file .claude-full-auto-progress.json
 ```
 
 모든 steps completed + DoD 전체 checked + verification 통과 확인 후:
@@ -693,7 +782,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_4 completed
   "phases": {
     "phase_0": { "outputs": { "definitionDoc": null, "readmePath": null, "techStack": null, "rounds": [] } },
     "phase_1": { "documents": [], "currentDocument": null },
-    "phase_2": { "documents": [], "currentDocument": null, "errorHistory": {}, "completedFiles": [], "context": {}, "documentSummaries": {} },
+    "phase_2": { "documents": [], "currentDocument": null, "errorHistory": {}, "completedFiles": [], "context": {}, "documentSummaries": {}, "scopeReductions": [] },
     "phase_3": { "currentRound": 0, "roundResults": [], "findingHistory": [] },
     "phase_4": { "verificationSteps": [] }
   },
@@ -709,7 +798,9 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_4 completed
     "build_pass": { "checked": false, "evidence": null },
     "test_pass": { "checked": false, "evidence": null },
     "code_review_pass": { "checked": false, "evidence": null },
-    "security_review": { "checked": false, "evidence": null }
+    "security_review": { "checked": false, "evidence": null },
+    "secret_scan": { "checked": false, "evidence": null },
+    "e2e_pass": { "checked": false, "evidence": null }
   },
   "handoff": {
     "lastIteration": null,
@@ -717,7 +808,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_4 completed
     "completedInThisIteration": "",
     "nextSteps": "",
     "keyDecisions": [],
-    "warnings": ""
+    "warnings": "",
+    "currentApproach": ""
   }
 }
 ```
@@ -785,7 +877,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_4 completed
 - 프로젝트 계획 승인/수정
 
 **예외적 허용:**
-- 동일 에러 5회 반복 시
+- L5 에스컬레이션 도달 시 (모든 레벨 소진)
 - 외부 서비스 API 키 입력 필요 시
 
 **금지된 질문 (절대 하지 않음):**
@@ -798,17 +890,16 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_4 completed
 
 ## 강제 규칙 (절대 위반 금지)
 
-1. **자동 진행**: Phase 간, 문서 간 사용자 확인 없이 자동 진행
+1. **자동 진행**: Phase 간, 문서 간 사용자 확인 없이 자동 진행. 문서/Phase 완료 시 다음으로 자동 전환.
 2. **단일 in_progress**: 동시에 하나의 문서만 `in_progress` 상태
 3. **완료 전 진행 금지**: `in_progress` 작업이 `completed` 되기 전 다음 작업 시작 금지
 4. **스킵 금지**: 어떤 이유로도 `pending` 작업을 건너뛰지 않음
 5. **중간 종료 금지**: 모든 Phase가 `completed` 될 때까지 종료하지 않음
 6. **상태 파일 동기화**: 상태 변경 시 반드시 progress 파일 업데이트
 7. **질문 금지**: Phase 0과 예외 상황 외에는 AskUserQuestion 절대 사용 금지
-8. **자동 전환**: 문서/Phase 완료 → 다음으로 확인 없이 자동 진행
-9. **자체 탐색**: codex에게 파일 경로를 전달하여 직접 읽도록 함. Claude가 내용을 요약하여 embed하지 않음.
-10. **handoff 필수**: 매 iteration 종료 시 handoff 필드 업데이트
-11. **스크립트 우선**: 구조적/기계적 검사는 `shared-gate.sh`로 먼저 실행. AI는 의미적 판단만.
+8. **자체 탐색**: codex에게 파일 경로를 전달하여 직접 읽도록 함. Claude가 내용을 요약하여 embed하지 않음.
+9. **handoff 필수**: 매 iteration 종료 시 handoff 필드 업데이트
+10. **스크립트 우선**: 구조적/기계적 검사는 `shared-gate.sh`로 먼저 실행. AI는 의미적 판단만.
 
 ## 포기 방지 규칙 (강제)
 
@@ -818,12 +909,12 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_4 completed
 - 모든 Phase 완료 전 종료
 - 진행 중인 작업을 포기하고 다음으로 넘어가기
 
-**강제 행동:**
-- 막히면 → codex-cli 호출
-- codex도 못 풀면 → 완전히 다른 접근법 시도
-- 3회 실패 → codex-cli 해결 요청
-- 5회 실패 → 사용자 개입 요청
+**강제 행동 (레벨별 에스컬레이션):**
+- L0 즉시 수정 (3회) → L1 다른 방법 (3회) → L2 codex 분석 → L3 다른 접근법 (3회) → L4 범위 축소 → L5 사용자 개입
+- 각 레벨에서 예산만큼 시도 후 다음 레벨로 자동 에스컬레이트
+- 레벨 전환 시 `record-error --reset-count`로 카운터 리셋
+- 범위 축소는 핵심 경로(인증, CRUD 기본, 빌드) 제외
 - 컨텍스트 부족 → `/compact` 실행 후 계속 진행
 - 모든 Phase 완료까지 계속 진행
 
-**원칙:** 5회 실패 전까지 스스로 해결. 모든 Phase가 완료될 때까지 멈추지 않음.
+**원칙:** L5(사용자 개입) 전까지 스스로 해결. 모든 Phase가 완료될 때까지 멈추지 않음.

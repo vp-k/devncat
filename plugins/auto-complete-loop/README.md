@@ -48,6 +48,12 @@ claude plugins install /path/to/auto-complete-loop
 - Phase 3: codex 코드 리뷰 (3라운드)
 - Phase 4: 릴리즈 검증 및 폴리싱
 
+### `/add-e2e [docs_dir]`
+기존 프로젝트에 E2E 테스트를 추가합니다.
+- 문서 경로 지정 시: 문서 분석 → 문서↔코드 정합성 → 시나리오 도출
+- 인수 없이 실행 시: 코드 분석 → 핵심 플로우 추론 → 회귀 방지 테스트 작성
+- 프레임워크 자동 선택: Web→Playwright, Flutter→integration_test, Mobile→Maestro
+
 ## 핵심 메커니즘
 
 ### Ralph Loop 내장
@@ -75,7 +81,8 @@ auto-complete-loop/
 │   ├── polish-for-release-gemini.md     # 릴리즈 전 폴리싱 (3자, gemini 포함)
 │   ├── code-review-loop.md             # 코드 리뷰 자동 반복 (2자)
 │   ├── code-review-loop-gemini.md       # 코드 리뷰 자동 반복 (3자, gemini 포함)
-│   └── full-auto.md                     # 기획→구현→검수 올인원
+│   ├── full-auto.md                     # 기획→구현→검수 올인원
+│   └── add-e2e.md                       # 기존 프로젝트에 E2E 테스트 추가
 ├── hooks/
 │   └── stop-hook.sh                     # Stop hook (Ralph Loop 확장)
 ├── scripts/
@@ -89,7 +96,7 @@ auto-complete-loop/
 
 | 서브커맨드 | 용도 |
 |-----------|------|
-| `init --template <type>` | progress JSON 초기화 (full-auto/plan/implement/review/polish) |
+| `init --template <type>` | progress JSON 초기화 (full-auto/plan/implement/review/polish/e2e) |
 | `init-ralph <promise> <progress_file> [max]` | Ralph Loop 파일 생성 |
 | `status` | 현재 상태 요약 출력 |
 | `update-step <step> <status>` | 단계 상태 전이 (동적 검증) |
@@ -99,5 +106,6 @@ auto-complete-loop/
 | `find-debug-code [dir]` | console.log/print/debugger 탐색 |
 | `doc-consistency [dir]` | 문서 간 일관성 검사 |
 | `doc-code-check [dir]` | 문서↔코드 매칭 |
+| `e2e-gate` | E2E 테스트 프레임워크 감지 + 실행 |
 
 글로벌 옵션: `--progress-file <path>` (미지정 시 자동 탐지)

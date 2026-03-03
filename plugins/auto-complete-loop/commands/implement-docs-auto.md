@@ -10,7 +10,7 @@ argument-hint: <definition(overview.md)> <doclist(README.md)>
 
 **핵심 원칙**:
 - Claude가 계획 수립부터 코드 작성까지 직접 수행
-- codex-cli는 리뷰 시점과 동일 에러 3회 반복 시에만 호출
+- codex-cli는 리뷰 시점과 L2 에스컬레이션(근본 원인 분석) 시에만 호출
 - 사용자에게 "진행할래?" 묻지 않음
 
 ## 인수
@@ -61,7 +61,8 @@ DoD를 `.claude-progress.json`의 `dod` 필드에 기록:
   "type_check": { "checked": false, "evidence": null },
   "lint_pass": { "checked": false, "evidence": null },
   "test_pass": { "checked": false, "evidence": null },
-  "code_review": { "checked": false, "evidence": null }
+  "code_review": { "checked": false, "evidence": null },
+  "e2e_pass": { "checked": false, "evidence": null }
 }
 ```
 각 항목의 `evidence`는 실제 실행 결과를 기록. evidence가 null이면 checked를 true로 설정 불가.
@@ -145,8 +146,8 @@ README($2)에서:
    - **프론트엔드**: 일반 구현 방식
 
 3. **품질 게이트 통과 확인** (빌드/타입/린트/테스트)
-   - 실패 시 Claude가 직접 수정 (최대 3회)
-   - **동일 에러 3회 반복 시 -> codex-cli 해결 요청** (에러 자동 복구 섹션 참조)
+   - 실패 시 L0-L5 에스컬레이션 적용 (에러 자동 복구 섹션 참조)
+   - L0 즉시 수정 → L1 다른 방법 → L2 codex 분석 → L3 다른 접근법 → L4 범위 축소 → L5 사용자 개입
 
 4. **codex-cli에게 코드 리뷰 요청**
    - 리뷰 피드백 있으면 -> 수정 후 다시 리뷰
@@ -178,11 +179,17 @@ codex 리뷰 시 테스트 우선 개발 준수 여부도 확인:
 
 ### 프론트엔드 테스트 전략
 
-**E2E 사용 안 함** - 브라우저/에뮬레이터 필요, 느림, 불안정
+**단위 테스트 (필수):** 비즈니스 로직 단위 테스트 (상태 관리, 유틸 함수)
 
-**권장:** 비즈니스 로직 단위 테스트 (상태 관리, 유틸 함수)
+**E2E 테스트 (필수):** 핵심 사용자 플로우를 커버하는 E2E 테스트 작성
+- Web: Playwright (헤드리스) — `npm init playwright@latest`로 설정
+- Flutter: integration_test/ — `flutter test integration_test/`
+- Mobile: Maestro — `.maestro/` 디렉토리에 YAML 플로우
 
-**UI:** 수동 확인 (타입 체크는 기본)
+**작성 원칙:**
+- 핵심 시나리오 3-5개 (가입→로그인→핵심기능→결과확인)
+- 헤드리스 CLI 실행 가능해야 함
+- 테스트 데이터 셋업/클린업 자체 포함
 
 **언어별 특화 지침:** codex 토론에서 결정 (아키텍처, 테스트 전략 등)
 
@@ -197,25 +204,29 @@ codex 리뷰 시 테스트 우선 개발 준수 여부도 확인:
 3. **린트 통과** - ESLint, gofmt, dart format 등
 4. **테스트 통과** - 해당 문서 관련 테스트 실행
 
-**품질 게이트 실패 처리 흐름:**
+**품질 게이트 실패 처리 흐름 (L0-L5 에스컬레이션):**
 
 ```
 빌드/타입/린트/테스트 실패
         |
-  [1] Claude 직접 수정 (최대 3회)
-        | (동일 에러 3회)
-  [2] codex-cli 해결 요청
+  [L0] Claude 즉시 수정 (3회)
+        | (예산 소진)
+  [L1] 다른 방법 시도 (3회)
+        | (예산 소진)
+  [L2] codex-cli 근본 원인 분석 (1회) + git stash 안전 지점
         |
-  [3] codex 제안 적용 후 재검증
-        | (여전히 실패)
-  [4] Claude 재시도 (errorHistory 리셋)
-        | (총 5회 실패)
-  [5] 사용자 개입 요청
+  [L3] 완전히 다른 접근법 (3회, codex 분석 기반)
+        | (예산 소진)
+  [L4] 범위 축소 (1회, 핵심 경로 제외)
+        | (예산 소진)
+  [L5] 사용자 개입 요청
 ```
 
-- **[1]~[3]**: "에러 자동 복구" 섹션의 규칙 적용
+- **L0~L1**: "에러 자동 복구" 섹션의 규칙 적용
+- **L2**: codex-cli 근본 원인 분석 + `git stash`로 안전 지점 확보
+- **L3~L4**: codex 분석 기반 접근법 전환 + 범위 축소
 - **phase 변화**: `testing` -> (실패) -> `implementing` -> (수정) -> `testing`
-- **errorHistory 리셋**: codex 해결 후 성공하면 `currentError`와 `attempts` 초기화
+- **레벨 전환 시**: `record-error --reset-count`로 카운터 리셋
 
 **codex 품질 게이트 해결 요청:**
 
@@ -334,23 +345,22 @@ Task(subagent_type="general-purpose", prompt="
 
 ## 에러 자동 복구
 
-> 이 섹션은 "문서별 품질 게이트"의 실패 처리 흐름 [1]~[3]에 해당합니다.
+> 이 섹션은 "문서별 품질 게이트"의 L0-L5 에스컬레이션에 해당합니다.
 
 ### 에러 분류 (Error Classification)
 
-에러 발생 시 먼저 분류:
+에러 발생 시 레벨 분류 (`shared-rules.md`의 Error Classification & Escalation 참조):
 
-**Fixable (자동 수정 가능):**
-- 누락된 import
-- lint/format 오류
-- 단순 타입 오류 (미사용 변수, nullable 처리)
-- -> Claude가 즉시 수정, 최대 3회 재시도
+| 레벨 | 분류 | 예시 |
+|------|------|------|
+| L0 | environment | 패키지 미설치, PATH, 권한 |
+| L1 | build | 컴파일 에러, 번들 실패 |
+| L2 | type | 타입 불일치, 인터페이스 누락 |
+| L3 | runtime | 테스트 실패, 런타임 에러 |
+| L4 | quality | 린트, 코드 스타일, 경고 |
 
-**Non-Fixable (설계 변경 필요):**
-- 로직 오류, 아키텍처 문제
-- 테스트 실패 (비즈니스 로직 불일치)
-- 순환 의존성, 스키마 불일치
-- -> codex-cli에게 근본 원인 분석 요청 후 접근법 변경
+**방향 판별**: L0→L1→...→L4 = 진행(forward), 역방향 = 회귀(backward)
+회귀 2회 연속 시 현재 접근법을 재검토 (codex 호출 또는 다른 접근법)
 
 ### 동일 에러 판별 기준
 
@@ -360,60 +370,91 @@ Task(subagent_type="general-purpose", prompt="
 - 에러 발생 파일
 - 에러 메시지의 핵심 부분 (줄 번호는 무시)
 
-**에러 발생 시 스크립트로 에러 기록 및 반복 판별:**
+**에러 발생 시 스크립트로 에러 기록 및 에스컬레이션 판별:**
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh record-error \
-  --file "src/auth.ts" --type "TypeError" --msg "Property 'user' does not exist on type 'Session'" \
+  --file "src/auth.ts" --type "TypeError" --msg "Property 'user' does not exist" \
+  --level L2 --action "타입 가드 추가 시도" \
+  --progress-file .claude-progress.json
+```
+
+레벨 전환 시 카운터 리셋:
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh record-error \
+  --file "src/auth.ts" --type "TypeError" --msg "Property 'user' does not exist" \
+  --level L2 --reset-count \
   --progress-file .claude-progress.json
 ```
 
 스크립트 exit code로 다음 액션 결정:
-- `0`: 계속 시도 (3회 미만)
-- `2`: 3회 초과 → codex 해결 요청 필요
-- `3`: 5회 초과 → 사용자 개입 필요
+- `0`: 현재 레벨 예산 내 → 계속 시도
+- `1`: 현재 레벨 예산 소진 → 다음 레벨로 에스컬레이트
+- `2`: L2 도달 → codex 분석 필요
+- `3`: L5 도달 → 사용자 개입 필요
 
-### 빌드/테스트 실패 처리
+### 빌드/테스트 실패 처리 (레벨별 에스컬레이션)
 
-**Claude 직접 수정 (1~3회차):**
+**L0: 즉시 수정 (3회)**
 
-1. 에러 분석 -> 원인 파악 -> 수정
+1. 에러 분석 → 원인 파악 → 수정
 2. 품질 게이트 재실행
 3. 통과 시 다음 단계, 실패 시 재시도
+4. 3회 소진 시 → L1로 에스컬레이트 (`record-error --reset-count`)
 
-**동일 에러 3회 반복 시:**
+**L1: 다른 방법 시도 (3회)**
 
-1. **롤백**: `git reset --hard {lastCommitSha}` (마지막 성공 커밋으로)
+같은 설계, 다른 구현으로 시도:
+- 라이브러리 교체, 패턴 변경, API 변경
+- 3회 소진 시 → L2로 에스컬레이트
+
+**L2: codex 분석 (1회)**
+
+1. **안전 지점 확보**: `git stash`로 현재 상태 저장
 2. **codex-cli 호출**:
 
 ```bash
-codex exec --skip-git-repo-check '## 반복 에러 해결 요청
+codex exec --skip-git-repo-check '## 근본 원인 분석 요청
 
-### 에러 내용 (3회 반복)
+### 에러 내용 (L0-L1 총 6회 시도 후)
 [에러 메시지 핵심]
 
 ### 시도한 해결책
 [이전 시도 목록]
 
 ### 요청
-완전히 다른 접근법으로 해결책을 제시해주세요.
+근본 원인을 분석하고 완전히 다른 접근법을 제시해주세요.
 '
 ```
 
-3. **codex 제안대로 다시 구현**
+3. codex 분석 결과 확보 → L3로 진행
 
-**롤백 후 상태 전이:**
+**L3: 완전히 다른 접근법 (3회, codex 분석 기반)**
 
-- `phase` -> `implementing` (처음부터 다시 구현)
-- `errorHistory.attempts`에 "롤백 + codex 제안" 추가
-- `errorHistory.currentError.count`는 유지 (총 시도 횟수 추적)
+설계/아키텍처 수준 전환 (REST→GraphQL, CSR→SSR, WebSocket→폴링 등):
+1. **롤백**: `git reset --hard {lastCommitSha}` (마지막 성공 커밋으로)
+2. codex 분석 결과 기반으로 다시 구현
+3. `phase` → `implementing` (처음부터 다시 구현)
+4. 3회 소진 시 → L4로 에스컬레이트
 
-**동일 에러 5회 반복 시 -> 사용자 개입 요청**
+**L4: 범위 축소 (1회)**
+
+`shared-rules.md`의 Scope Reduction 절차 참조:
+1. 기능을 최소 동작 버전으로 구현
+2. `scopeReductions` 배열에 기록
+3. `SCOPE_REDUCTIONS.md` 생성/업데이트
+4. **핵심 경로(인증, CRUD 기본, 빌드)는 범위 축소 불가**
+5. 범위 축소 후에도 실패 시 → L5로 에스컬레이트
+
+**L5: 사용자 개입 요청**
+
+선택지를 제시하여 사용자에게 개입 요청
 
 **errorHistory 초기화 시점:**
 
-- 품질 게이트 통과 시 -> 전체 초기화
-- codex 해결책으로 다른 에러 발생 시 -> `currentError` 갱신, `attempts` 초기화
+- 품질 게이트 통과 시 → 전체 초기화
+- 레벨 전환 시 → `record-error --reset-count`로 카운터 리셋
+- codex 해결책으로 다른 에러 발생 시 → `currentError` 갱신
 
 ### Edit 도구 에러 처리
 
@@ -553,7 +594,7 @@ codex exec --skip-git-repo-check '## 반복 에러 해결 요청
 
 **저장하지 않는 것:**
 - 매 턴의 turnCount (메모리로만 관리)
-- 1~2회차 에러 (3회 반복 전까지는 저장 안 함)
+- 1~2회차 에러 (L0 예산 소진 전까지는 저장 안 함)
 
 ### 체크포인트 (문서 완료 조건)
 
@@ -604,6 +645,19 @@ codex exec --skip-git-repo-check '## 반복 에러 해결 요청
 1. **전체 빌드 재실행** - 모든 모듈 빌드 성공 확인
 2. **전체 테스트 재실행** - 모든 테스트 통과 확인
 3. **린트/포맷 전체 검사** - 코드 스타일 일관성 확인
+
+### 4.1.5 E2E 테스트 검증
+
+1. 기존 E2E 테스트 점검:
+   - 누락된 핵심 시나리오 확인 → 추가
+   - 실패 테스트 원인 분석 → 수정
+
+2. E2E 실행:
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh e2e-gate
+```
+
+3. 프레임워크 미감지 시: 이 시점에서 E2E 설정 + 테스트 작성 후 재실행.
 
 ### 4.2 보안 검토
 
@@ -705,45 +759,45 @@ codex exec --skip-git-repo-check '## 릴리즈 전 정리
 - "다른 접근법을 시도해보세요" (본인이 시도하지 않고)
 - 중간에 사용자에게 넘기기
 
-**강제 행동:**
+**강제 행동 (레벨별 에스컬레이션):**
+- L0 즉시 수정 (3회) → L1 다른 방법 (3회) → L2 codex 분석 → L3 다른 접근법 (3회) → L4 범위 축소 → L5 사용자 개입
+- 각 레벨에서 예산만큼 시도 후 다음 레벨로 자동 에스컬레이트
+- 레벨 전환 시 `record-error --reset-count`로 카운터 리셋
+- 범위 축소는 핵심 경로(인증, CRUD 기본, 빌드) 제외
 
-- 막히면 -> codex-cli 호출
-- codex도 못 풀면 -> 완전히 다른 접근법 시도
-- 5회 실패 전까지 포기 금지
-- 모든 시도 소진 후에만 사용자 개입 요청
-
-**원칙:** 5회 실패 전까지 스스로 해결
+**원칙:** L5(사용자 개입) 전까지 스스로 해결
 
 ## 사용자 개입 시점 (최소화)
 
-### 교착 상태 처리
+### 교착 상태 처리 (레벨별)
 
-- **3회 반복**: codex에게 교착 상태 해결 요청
+- **L2 도달 시**: codex에게 교착 상태 근본 원인 분석 요청
 
 ```bash
-codex exec --skip-git-repo-check '## 교착 상태 해결 요청
+codex exec --skip-git-repo-check '## 교착 상태 근본 원인 분석
 
-동일 지적 3회 반복됨.
+L0-L1 총 6회 시도 후 해결 실패.
 
 ### 지적 내용
 [핵심 지적 요약]
 
-### 기존 시도
+### 기존 시도 (L0: 즉시 수정 3회 + L1: 다른 방법 3회)
 [시도한 해결책들]
 
 ### 해결 안 되는 이유 추정
 [왜 안 되는지]
 
 ### 요청
-근본적으로 다른 접근법 제시해달라.
+근본 원인을 분석하고 완전히 다른 접근법을 제시해달라.
 '
 ```
 
-- **5회 반복**: 사용자에게 개입 요청
+- **L3-L4**: 자동 처리 (codex 분석 기반 다른 접근법 + 범위 축소)
+- **L5 도달 시**: 사용자에게 개입 요청
 
 ### 사용자 개입 필요
 
-- 교착 상태 5회 반복
+- L5 에스컬레이션 도달 (L0~L4 모든 시도 소진)
 - 외부 서비스 API 키 입력 필요
 - 보안 관련 결정 (민감 정보 처리 방식)
 
