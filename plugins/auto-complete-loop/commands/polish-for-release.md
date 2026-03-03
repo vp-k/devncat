@@ -85,7 +85,9 @@ Stop Hook이 완료 조건 미달을 감지하면 자동으로 다음 iteration 
   "dod": {
     "build_pass": { "checked": false, "evidence": null },
     "test_pass": { "checked": false, "evidence": null },
+    "e2e_pass": { "checked": false, "evidence": null },
     "security_review": { "checked": false, "evidence": null },
+    "secret_scan": { "checked": false, "evidence": null },
     "docs_complete": { "checked": false, "evidence": null },
     "final_verification": { "checked": false, "evidence": null }
   },
@@ -103,7 +105,9 @@ Stop Hook이 완료 조건 미달을 감지하면 자동으로 다음 iteration 
 **각 단계 완료 시 dod 업데이트:**
 - 3단계(빌드 검증) 완료 → `dod.build_pass` checked + evidence
 - 4단계(테스트 검증) 완료 → `dod.test_pass` checked + evidence
+- 4단계(테스트 검증) 완료 → `dod.e2e_pass` checked + evidence
 - 5단계(보안 검토) 완료 → `dod.security_review` checked + evidence
+- 5단계(보안 검토) 완료 → `dod.secret_scan` checked + evidence
 - 6단계(문서화 확인) 완료 → `dod.docs_complete` checked + evidence
 - 8단계(최종 검증) 완료 → `dod.final_verification` checked + evidence
 
@@ -193,9 +197,25 @@ README($2)가 있으면 기획 문서 목록 추출 후:
 - 구현 완료까지 반복
 - 구현 후 3~7단계 품질 검증 진행
 
+### 정합성 검사 (스크립트)
+
+구현 수정 완료 후 스크립트로 정합성을 검증합니다:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh doc-consistency docs/ --progress-file .claude-polish-progress.json
+```
+
+스크립트가 발견한 구조적 불일치를 Claude Code가 수정.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh doc-code-check docs/ --progress-file .claude-polish-progress.json
+```
+
+문서↔코드 불일치 발견 시 Claude Code가 수정 후 재실행.
+
 단계 완료 시 evidence 기록:
 ```json
-"evidence": { "reviewRounds": 3, "issuesFound": 5, "issuesFixed": 5 }
+"evidence": { "reviewRounds": 3, "issuesFound": 5, "issuesFixed": 5, "docConsistency": "pass", "docCodeCheck": "pass" }
 ```
 
 ## 3단계: 빌드 검증
@@ -251,6 +271,15 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh quality-gate --progress-file .
 - 실패 테스트 -> **Claude Code가 수정** 후 재실행
 - 커버리지 부족 -> 2자 토론 후 테스트 추가 여부 결정, **Claude Code가 작성**
 
+### E2E 테스트 검증
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh e2e-gate --progress-file .claude-polish-progress.json
+```
+
+프레임워크 미감지 시(exit 2): E2E 설정 + 테스트 작성 후 재실행.
+실패 시 Claude Code가 원인 분석 및 수정 후 재실행.
+
 ### 검증 결과 기록
 
 `.claude-verification.json`에 테스트 결과 추가:
@@ -260,10 +289,19 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh quality-gate --progress-file .
 
 단계 완료 시 evidence 기록:
 ```json
-"evidence": { "testExitCode": 0, "passed": 42, "failed": 0 }
+"evidence": { "testExitCode": 0, "passed": 42, "failed": 0, "e2eExitCode": 0 }
 ```
 
 ## 5단계: 보안 검토
+
+### 시크릿 스캔 (자동화, 최우선)
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh secret-scan --progress-file .claude-polish-progress.json
+```
+
+**HARD_FAIL**: 시크릿 발견 시 즉시 제거/환경변수 이동 후 재스캔.
+이 게이트를 통과해야 나머지 보안 검토로 진행.
 
 ### 검증 항목
 
@@ -283,7 +321,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh quality-gate --progress-file .
 
 단계 완료 시 evidence 기록:
 ```json
-"evidence": { "envInGitignore": true, "hardcodedSecrets": 0, "criticalVulnerabilities": 0 }
+"evidence": { "envInGitignore": true, "hardcodedSecrets": 0, "criticalVulnerabilities": 0, "secretScanExitCode": 0 }
 ```
 
 ## 6단계: 문서화 확인
@@ -330,7 +368,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh quality-gate --progress-file .
    - .env.example 최신화
 
 4. **불필요한 파일 정리**
-   - 디버그 코드 탐색: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh find-debug-code`
+   - 디버그 코드 탐색: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh find-debug-code --progress-file .claude-polish-progress.json`
    - 발견된 디버그 코드 제거 (console.log, print 등)
    - 주석 처리된 코드 정리
    - 미사용 import 제거
@@ -353,6 +391,17 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh quality-gate --progress-file .
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh quality-gate --progress-file .claude-polish-progress.json
 ```
 
+빌드 아티팩트 + 서버 헬스체크:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh artifact-check --progress-file .claude-polish-progress.json
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh smoke-check --progress-file .claude-polish-progress.json
+```
+
+artifact-check 실패(SOFT_FAIL) 시 빌드 재실행.
+smoke-check 실패(SOFT_FAIL) 시 서버 시작 스크립트 확인 후 재시도.
+서버리스/라이브러리 프로젝트(package.json의 main/exports만 있고 start 스크립트 없음, 또는 serverless.yml/vercel.json 존재)는 스킵 허용.
+
 스크립트가 빌드/타입/린트/테스트를 재실행하고 결과를 `.claude-verification.json`에 기록합니다.
 
 **증거 기반 완료 선언 (필수):**
@@ -370,7 +419,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh quality-gate --progress-file .
 
 단계 완료 시 evidence 기록:
 ```json
-"evidence": { "finalBuildExitCode": 0, "finalTestExitCode": 0, "finalLintExitCode": 0 }
+"evidence": { "finalBuildExitCode": 0, "finalTestExitCode": 0, "finalLintExitCode": 0, "artifactCheckExitCode": 0, "smokeCheckExitCode": 0 }
 ```
 
 ### Handoff (Iteration 종료 전 필수)
