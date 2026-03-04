@@ -128,6 +128,7 @@ record-error exit code:
 | code-review-loop | 라운드 수정 + 품질 게이트 통과 후 | `[auto] 코드 리뷰 Round {N} 수정 완료` |
 | full-auto Phase 3 | 라운드 수정 + 품질 게이트 통과 후 | `[auto] Phase 3 코드 리뷰 Round {N} 수정 완료` |
 | full-auto Phase 4 | 최종 검증 + 폴리싱 완료 후 | `[auto] 최종 검증 및 폴리싱 완료` |
+| full-auto Phase 4 design | 디자인 수정 + 품질 게이트 통과 후 | `[auto] Phase 4 디자인 폴리싱 완료` |
 
 ## 강제 규칙 (모든 스킬 공통)
 1. **단일 in_progress**: 동시에 하나의 문서/단계만 `in_progress` 상태

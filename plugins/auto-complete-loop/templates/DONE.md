@@ -24,3 +24,4 @@
 - [ ] 보안 취약점 스캔 통과
 - [ ] README 업데이트
 - [ ] 디버그 코드 제거
+- [ ] WCAG AA 접근성 준수 (또는 design-polish 미설치로 SKIP)

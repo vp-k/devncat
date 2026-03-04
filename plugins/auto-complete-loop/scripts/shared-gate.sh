@@ -17,6 +17,7 @@
 #   find-debug-code [dir]                              - console.log/print/debugger 탐색
 #   doc-consistency [docs_dir]                         - 문서 간 일관성 검사
 #   doc-code-check [docs_dir]                          - 문서↔코드 매칭
+#   design-polish-gate                                 - WCAG 체크 + 스크린샷 캡처 (SOFT_FAIL)
 
 set -euo pipefail
 
@@ -153,7 +154,7 @@ cmd_init() {
     "phase_1": { "documents": [], "currentDocument": null },
     "phase_2": { "documents": [], "currentDocument": null, "errorHistory": {}, "completedFiles": [], "context": {}, "documentSummaries": {}, "scopeReductions": [] },
     "phase_3": { "currentRound": 0, "roundResults": [], "findingHistory": [] },
-    "phase_4": { "verificationSteps": [] }
+    "phase_4": { "verificationSteps": [], "designPolish": null }
   },
   "consistencyChecks": {
     "doc_vs_doc": { "checked": false, "evidence": null },
@@ -169,7 +170,8 @@ cmd_init() {
     "code_review_pass": { "checked": false, "evidence": null },
     "security_review": { "checked": false, "evidence": null },
     "secret_scan": { "checked": false, "evidence": null },
-    "e2e_pass": { "checked": false, "evidence": null }
+    "e2e_pass": { "checked": false, "evidence": null },
+    "design_quality": { "checked": false, "evidence": null }
   },
   "handoff": {
     "lastIteration": null,
@@ -1569,6 +1571,178 @@ cmd_e2e_gate() {
   fi
 }
 
+# ─── design-polish-gate: 디자인 폴리싱 WCAG 체크 + 스크린샷 캡처 ───
+
+cmd_design_polish_gate() {
+  echo "=== Design Polish Gate ==="
+  require_jq
+
+  # design-polish 플러그인 경로 감지
+  local dp_root=""
+  for dp in "$HOME/.claude/plugins/marketplaces/design-polish" \
+            "$HOME/.claude/plugins/design-polish"; do
+    if [[ -f "$dp/scripts/search.cjs" ]]; then
+      dp_root="$dp"
+      break
+    fi
+  done
+
+  if [[ -z "$dp_root" ]]; then
+    echo "[design-polish-gate] SKIP (design-polish plugin not installed)"
+    local ts
+    ts=$(timestamp)
+    if [[ -f "$VERIFICATION_FILE" ]]; then
+      jq_inplace "$VERIFICATION_FILE" --arg ts "$ts" \
+        '.designPolish = {"timestamp": $ts, "result": "skip", "reason": "plugin not installed"}'
+    else
+      jq -n --arg ts "$ts" \
+        '{"designPolish": {"timestamp": $ts, "result": "skip", "reason": "plugin not installed"}}' > "$VERIFICATION_FILE"
+    fi
+    # DoD에 SKIP 기록
+    if [[ -n "$PROGRESS_FILE" ]] && [[ -f "$PROGRESS_FILE" ]]; then
+      local has_dq
+      has_dq=$(jq '.dod | has("design_quality")' "$PROGRESS_FILE" 2>/dev/null || echo "false")
+      if [[ "$has_dq" == "true" ]]; then
+        jq_inplace "$PROGRESS_FILE" --arg ev "SKIP: design-polish not installed" '
+          .dod.design_quality.checked = true
+          | .dod.design_quality.evidence = $ev
+        '
+      fi
+    fi
+    echo "=== DESIGN POLISH GATE: SKIP ==="
+    return 2
+  fi
+
+  echo "[design-polish-gate] Plugin found: $dp_root"
+
+  # puppeteer 의존성 확인
+  if ! command -v npx >/dev/null 2>&1; then
+    echo "[design-polish-gate] SKIP (npx not available — puppeteer requires Node.js)"
+    echo "=== DESIGN POLISH GATE: SKIP ==="
+    return 2
+  fi
+
+  # capture.cjs 존재 확인
+  if [[ ! -f "$dp_root/scripts/capture.cjs" ]]; then
+    echo "[design-polish-gate] SKIP (capture.cjs not found in plugin)"
+    echo "=== DESIGN POLISH GATE: SKIP ==="
+    return 2
+  fi
+
+  # 서버 시작 (smoke-check 로직 재사용)
+  local port=3000
+  local start_cmd=""
+  if [[ -f "package.json" ]]; then
+    local pm="npm"
+    [[ -f "pnpm-lock.yaml" ]] && pm="pnpm"
+    [[ -f "yarn.lock" ]] && pm="yarn"
+    [[ -f "bun.lockb" ]] && pm="bun"
+
+    if jq -e '.scripts.start' package.json >/dev/null 2>&1; then
+      start_cmd="$pm run start"
+    elif jq -e '.scripts.dev' package.json >/dev/null 2>&1; then
+      start_cmd="$pm run dev"
+    elif jq -e '.scripts.preview' package.json >/dev/null 2>&1; then
+      start_cmd="$pm run preview"
+    fi
+  fi
+
+  if [[ -z "$start_cmd" ]]; then
+    echo "[design-polish-gate] SKIP (no start/dev script — cannot capture screenshots)"
+    echo "=== DESIGN POLISH GATE: SKIP ==="
+    return 2
+  fi
+
+  echo "[design-polish-gate] Starting server: $start_cmd"
+  local server_pid
+  eval "$start_cmd" > /tmp/design-polish-server.log 2>&1 &
+  server_pid=$!
+
+  # 서버 응답 대기 (최대 15초)
+  local elapsed=0
+  local server_ready=false
+  while [[ $elapsed -lt 15 ]]; do
+    sleep 1
+    elapsed=$((elapsed + 1))
+    if ! kill -0 "$server_pid" 2>/dev/null; then
+      echo "[design-polish-gate] Server process exited prematurely"
+      break
+    fi
+    local http_code
+    http_code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:$port" 2>/dev/null || echo "000")
+    if [[ "$http_code" != "000" ]] && [[ "$http_code" =~ ^[23] ]]; then
+      server_ready=true
+      break
+    fi
+  done
+
+  if [[ "$server_ready" != "true" ]]; then
+    # 서버 정리
+    kill "$server_pid" 2>/dev/null || true
+    pkill -P "$server_pid" 2>/dev/null || true
+    wait "$server_pid" 2>/dev/null || true
+    rm -f /tmp/design-polish-server.log
+    echo "[design-polish-gate] SKIP (server failed to start)"
+    echo "=== DESIGN POLISH GATE: SKIP ==="
+    return 2
+  fi
+
+  echo "[design-polish-gate] Server ready on port $port"
+
+  # capture.cjs 실행 (WCAG + 스크린샷)
+  local capture_exit=0
+  echo "[design-polish-gate] Running capture: node $dp_root/scripts/capture.cjs --wcag /"
+  node "$dp_root/scripts/capture.cjs" --wcag / 2>&1 && capture_exit=0 || capture_exit=$?
+
+  # 서버 프로세스 정리
+  kill "$server_pid" 2>/dev/null || true
+  pkill -P "$server_pid" 2>/dev/null || true
+  wait "$server_pid" 2>/dev/null || true
+  rm -f /tmp/design-polish-server.log
+
+  # WCAG 리포트 요약
+  local wcag_violations=0
+  local wcag_summary="no report"
+  if [[ -f ".design-polish/accessibility/wcag-report.json" ]]; then
+    wcag_violations=$(jq '[.violations // [] | .[]] | length' ".design-polish/accessibility/wcag-report.json" 2>/dev/null || echo "0")
+    wcag_summary="$wcag_violations violations found"
+    echo "[design-polish-gate] WCAG: $wcag_summary"
+  else
+    echo "[design-polish-gate] WARNING: WCAG report not generated"
+  fi
+
+  # 스크린샷 확인
+  if [[ -f ".design-polish/screenshots/current-main.png" ]]; then
+    echo "[design-polish-gate] Screenshot captured: .design-polish/screenshots/current-main.png"
+  else
+    echo "[design-polish-gate] WARNING: Screenshot not captured"
+  fi
+
+  # verification.json에 결과 기록
+  local ts result
+  ts=$(timestamp)
+  if [[ "$wcag_violations" -gt 0 ]]; then
+    result="soft_fail"
+  else
+    result="pass"
+  fi
+
+  if [[ -f "$VERIFICATION_FILE" ]]; then
+    jq_inplace "$VERIFICATION_FILE" \
+      --arg ts "$ts" --argjson violations "$wcag_violations" --arg result "$result" --arg summary "$wcag_summary" \
+      '.designPolish = {"timestamp": $ts, "wcagViolations": $violations, "result": $result, "summary": $summary}'
+  else
+    jq -n --arg ts "$ts" --argjson violations "$wcag_violations" --arg result "$result" --arg summary "$wcag_summary" \
+      '{"designPolish": {"timestamp": $ts, "wcagViolations": $violations, "result": $result, "summary": $summary}}' > "$VERIFICATION_FILE"
+  fi
+
+  echo "=== DESIGN POLISH GATE: ${result^^} ==="
+  if [[ "$result" == "soft_fail" ]]; then
+    return 1
+  fi
+  return 0
+}
+
 # ─── 메인 디스패치 ───
 
 main() {
@@ -1596,6 +1770,7 @@ main() {
     doc-consistency)   cmd_doc_consistency "$@" ;;
     doc-code-check)    cmd_doc_code_check "$@" ;;
     e2e-gate)           cmd_e2e_gate "$@" ;;
+    design-polish-gate) cmd_design_polish_gate "$@" ;;
     help|--help|-h)
       echo "Usage: shared-gate.sh <subcommand> [--progress-file <path>] [args]"
       echo ""
@@ -1621,6 +1796,7 @@ main() {
       echo "  doc-consistency [docs_dir]                 - Check doc consistency"
       echo "  doc-code-check [docs_dir]                  - Check doc-code matching"
       echo "  e2e-gate                                   - Run E2E tests (auto-detect framework)"
+      echo "  design-polish-gate                         - WCAG check + screenshot capture (SOFT_FAIL)"
       echo ""
       echo "Global options:"
       echo "  --progress-file <path>  Specify progress file (auto-detected if omitted)"
