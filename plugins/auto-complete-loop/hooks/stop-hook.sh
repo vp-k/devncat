@@ -38,18 +38,19 @@ FRONTMATTER=$(awk '/^---$/{i++; if(i==2) exit; next} i==1{print}' "$RALPH_STATE_
 ITERATION=$(echo "$FRONTMATTER" | grep "^iteration:" | sed 's/iteration: *//' | tr -d '\r')
 MAX_ITERATIONS=$(echo "$FRONTMATTER" | grep "^max_iterations:" | sed 's/max_iterations: *//' | tr -d '\r')
 COMPLETION_PROMISE=$(echo "$FRONTMATTER" | grep "^completion_promise:" | sed 's/completion_promise: *//' | sed 's/^"//' | sed 's/"$//' | tr -d '\r')
+PROGRESS_FILE_FROM_FRONTMATTER=$(echo "$FRONTMATTER" | grep "^progress_file:" | sed 's/progress_file: *//' | sed 's/^"//' | sed 's/"$//' | tr -d '\r' || true)
 
 # 데이터 검증
 if ! [[ "$ITERATION" =~ ^[0-9]+$ ]] || ! [[ "$MAX_ITERATIONS" =~ ^[0-9]+$ ]]; then
   echo "Ralph loop state file is corrupted. Removing and allowing stop."
-  rm -f "$RALPH_STATE_FILE"
+  rm -f "$RALPH_STATE_FILE" ".claude/ralph-loop-failure-history.local"
   exit 0
 fi
 
 # max_iterations 도달 확인
 if [[ $MAX_ITERATIONS -gt 0 ]] && [[ $ITERATION -ge $MAX_ITERATIONS ]]; then
   echo "Ralph loop: Max iterations ($MAX_ITERATIONS) reached."
-  rm -f "$RALPH_STATE_FILE"
+  rm -f "$RALPH_STATE_FILE" ".claude/ralph-loop-failure-history.local"
   exit 0
 fi
 
@@ -89,9 +90,18 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
     FAILURE_REASONS=""
 
     # 1. progress 파일 검증 (존재하는 경우)
+    # 프론트매터에 지정된 파일만 검증. 미지정 시 기존 glob 폴백 (하위 호환)
     VERIFIED_PROGRESS_FILES=()
-    for PROGRESS_FILE in .claude-*progress*.json; do
-      [[ -f "$PROGRESS_FILE" ]] && VERIFIED_PROGRESS_FILES+=("$PROGRESS_FILE")
+    if [[ -n "${PROGRESS_FILE_FROM_FRONTMATTER:-}" ]] && [[ -f "$PROGRESS_FILE_FROM_FRONTMATTER" ]]; then
+      PROGRESS_FILES_TO_CHECK=("$PROGRESS_FILE_FROM_FRONTMATTER")
+    else
+      PROGRESS_FILES_TO_CHECK=()
+      for pf in .claude-*progress*.json; do
+        [[ -f "$pf" ]] && PROGRESS_FILES_TO_CHECK+=("$pf")
+      done
+    fi
+    for PROGRESS_FILE in "${PROGRESS_FILES_TO_CHECK[@]}"; do
+      VERIFIED_PROGRESS_FILES+=("$PROGRESS_FILE")
       if [[ -f "$PROGRESS_FILE" ]]; then
         # documents 배열이 있는 경우: 모든 문서가 completed인지 확인
         HAS_DOCUMENTS=$(jq 'has("documents")' "$PROGRESS_FILE" 2>/dev/null || echo "false")
@@ -146,7 +156,7 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
       # exitCode 필드들 수집 (존재하는 항목만)
       ALL_VERIFIED=$(jq '
         [to_entries[] | select(.value | type == "object" and has("exitCode") and .exitCode != null) | .value.exitCode]
-        | if length == 0 then false
+        | if length == 0 then true
           else all(. == 0)
           end
       ' .claude-verification.json 2>/dev/null || echo "false")
@@ -160,7 +170,7 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
     # 검증 결과에 따른 분기
     if [[ "$VERIFICATION_PASSED" = "true" ]]; then
       echo "Auto Complete Loop: Promise verified. All conditions met."
-      rm -f "$RALPH_STATE_FILE"
+      rm -f "$RALPH_STATE_FILE" ".claude/ralph-loop-failure-history.local"
       # 검증 완료된 progress 파일 정리
       for pf in "${VERIFIED_PROGRESS_FILES[@]}"; do
         rm -f "$pf"
@@ -169,6 +179,22 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
       exit 0
     else
       echo "Auto Complete Loop: Promise detected but verification failed: ${FAILURE_REASONS}Continuing loop..."
+
+      # 무한 루프 감지: 동일 실패 해시가 3회 연속 시 강제 탈출
+      FAILURE_HISTORY_FILE=".claude/ralph-loop-failure-history.local"
+      CURRENT_FAILURE_HASH=$(echo "$FAILURE_REASONS" | md5sum | cut -d' ' -f1)
+      REPEAT_COUNT=0
+      if [[ -f "$FAILURE_HISTORY_FILE" ]]; then
+        REPEAT_COUNT=$(grep -c "^${CURRENT_FAILURE_HASH}$" "$FAILURE_HISTORY_FILE" 2>/dev/null || echo "0")
+      fi
+      echo "$CURRENT_FAILURE_HASH" >> "$FAILURE_HISTORY_FILE"
+      REPEAT_COUNT=$((REPEAT_COUNT + 1))
+
+      if [[ $REPEAT_COUNT -ge 3 ]]; then
+        echo "Auto Complete Loop: Same failure repeated ${REPEAT_COUNT} times. Breaking loop."
+        rm -f "$RALPH_STATE_FILE" "$FAILURE_HISTORY_FILE"
+        exit 0
+      fi
       # 아래의 루프 계속 로직으로 진행
     fi
   fi
@@ -187,9 +213,14 @@ sed "s/^iteration: .*/iteration: $NEXT_ITERATION/" "$RALPH_STATE_FILE" > "$TEMP_
 mv "$TEMP_FILE" "$RALPH_STATE_FILE"
 
 # JSON 출력으로 stop 차단 및 프롬프트 되돌림
+SYSTEM_MSG="Auto Complete Loop iteration $NEXT_ITERATION | $(date '+%H:%M:%S')"
+if [[ -n "${FAILURE_REASONS:-}" ]]; then
+  SYSTEM_MSG="${SYSTEM_MSG} | Verification failed: ${FAILURE_REASONS}"
+fi
+
 jq -n \
   --arg prompt "$PROMPT_TEXT" \
-  --arg msg "Auto Complete Loop iteration $NEXT_ITERATION | $(date '+%H:%M:%S')" \
+  --arg msg "$SYSTEM_MSG" \
   '{
     "decision": "block",
     "reason": $prompt,

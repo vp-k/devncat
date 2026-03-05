@@ -421,6 +421,7 @@ active: true
 iteration: 1
 max_iterations: $max_iter
 completion_promise: "$promise"
+progress_file: "$progress_file"
 started_at: "$now"
 ---
 
