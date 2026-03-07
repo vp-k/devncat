@@ -1184,8 +1184,13 @@ cmd_record_error() {
     fi
   fi
 
-  # 동일 에러 판별 (type + file 일치)
-  if [[ "$current_err_type" == "$err_type" ]] && [[ "$current_err_file" == "$err_file" ]]; then
+  # 동일 에러 판별 (type + file + 메시지 핵심 일치)
+  # 메시지 정규화: 숫자/라인번호 제거하여 핵심만 비교
+  local msg_normalized
+  msg_normalized=$(echo "$err_msg" | sed 's/[0-9]//g' | sed 's/  */ /g' | head -c 100)
+  local prev_msg_normalized
+  prev_msg_normalized=$(jq -r '.errorHistory.currentError.msgNormalized // ""' "$PROGRESS_FILE" 2>/dev/null)
+  if [[ "$current_err_type" == "$err_type" ]] && [[ "$current_err_file" == "$err_file" ]] && [[ "$msg_normalized" == "$prev_msg_normalized" ]]; then
     current_count=$((current_count + 1))
   else
     current_count=1
@@ -1244,11 +1249,13 @@ cmd_record_error() {
     --arg escalation "$current_escalation" \
     --argjson budget "$current_budget" \
     --arg level "${err_level:-}" \
+    --arg mnorm "$msg_normalized" \
     --argjson logEntry "$log_entry" '
     .errorHistory.currentError = {
       "type": $type,
       "file": $file,
       "message": $msg,
+      "msgNormalized": $mnorm,
       "count": $count,
       "escalationLevel": $escalation
     }
@@ -1655,6 +1662,20 @@ cmd_design_polish_gate() {
   echo "=== Design Polish Gate ==="
   require_jq
 
+  # SKIP 분기 공통 기록 헬퍼
+  _dp_record_skip() {
+    local reason="$1"
+    local ts
+    ts=$(timestamp)
+    if [[ -f "$VERIFICATION_FILE" ]]; then
+      jq_inplace "$VERIFICATION_FILE" --arg ts "$ts" --arg r "$reason" \
+        '.designPolish = {"timestamp": $ts, "result": "skip", "reason": $r}'
+    else
+      jq -n --arg ts "$ts" --arg r "$reason" \
+        '{"designPolish": {"timestamp": $ts, "result": "skip", "reason": $r}}' > "$VERIFICATION_FILE"
+    fi
+  }
+
   # design-polish 플러그인 경로 감지
   local dp_root=""
   for dp in "$HOME/.claude/plugins/marketplaces/design-polish" \
@@ -1696,6 +1717,7 @@ cmd_design_polish_gate() {
   # puppeteer 의존성 확인
   if ! command -v npx >/dev/null 2>&1; then
     echo "[design-polish-gate] SKIP (npx not available — puppeteer requires Node.js)"
+    _dp_record_skip "npx not available"
     echo "=== DESIGN POLISH GATE: SKIP ==="
     return 2
   fi
@@ -1703,6 +1725,7 @@ cmd_design_polish_gate() {
   # capture.cjs 존재 확인
   if [[ ! -f "$dp_root/scripts/capture.cjs" ]]; then
     echo "[design-polish-gate] SKIP (capture.cjs not found in plugin)"
+    _dp_record_skip "capture.cjs not found"
     echo "=== DESIGN POLISH GATE: SKIP ==="
     return 2
   fi
@@ -1727,6 +1750,7 @@ cmd_design_polish_gate() {
 
   if [[ -z "$start_cmd" ]]; then
     echo "[design-polish-gate] SKIP (no start/dev script — cannot capture screenshots)"
+    _dp_record_skip "no start/dev script"
     echo "=== DESIGN POLISH GATE: SKIP ==="
     return 2
   fi
@@ -1761,6 +1785,7 @@ cmd_design_polish_gate() {
     wait "$server_pid" 2>/dev/null || true
     rm -f /tmp/design-polish-server.log
     echo "[design-polish-gate] SKIP (server failed to start)"
+    _dp_record_skip "server failed to start"
     echo "=== DESIGN POLISH GATE: SKIP ==="
     return 2
   fi

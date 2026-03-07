@@ -30,7 +30,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh init-ralph "ALL_DOCS_VERIFIED"
 
 `<promise>ALL_DOCS_VERIFIED</promise>`를 출력하려면 다음이 **모두** 참이어야 합니다:
 1. `.claude-progress.json`의 모든 문서 status가 `completed`
-2. `.claude-verification.json`의 모든 검증 항목 exitCode가 0
+2. `.claude-verification.json`의 모든 검증 항목이 통과 (build/typeCheck/lint/test는 `exitCode: 0`, secretScan/artifactCheck/smokeCheck/designPolish는 `result: "pass"` 또는 `result: "skip"`)
 3. `.claude-progress.json`의 `dod` 체크리스트가 모두 checked
 4. 위 조건을 **직전에 확인**한 결과여야 함 (이전 iteration 결과 재사용 금지)
 
@@ -432,7 +432,7 @@ codex exec --skip-git-repo-check '## 근본 원인 분석 요청
 **L3: 완전히 다른 접근법 (3회, codex 분석 기반)**
 
 설계/아키텍처 수준 전환 (REST→GraphQL, CSR→SSR, WebSocket→폴링 등):
-1. **롤백**: `git restore --source={lastCommitSha} -- .` (마지막 성공 커밋 기준 복원, 커밋 히스토리 보존)
+1. **롤백**: 현재 문서/티켓에서 변경한 파일만 대상으로 `git restore --source={lastCommitSha} -- <변경된 파일 목록>` (전체 `.` 롤백 금지 — 다른 작업의 변경을 보호)
 2. codex 분석 결과 기반으로 다시 구현
 3. `phase` → `implementing` (처음부터 다시 구현)
 4. 3회 소진 시 → L4로 에스컬레이트
