@@ -187,7 +187,7 @@ cmd_init() {
   "phases": {
     "phase_0": { "outputs": { "definitionDoc": null, "readmePath": null, "techStack": null, "rounds": [], "assumptions": [], "nsm": null, "successCriteria": [], "premortem": {"tigers":[],"paperTigers":[],"elephants":[]}, "projectSize": null, "stakeholders": null } },
     "phase_1": { "documents": [], "currentDocument": null },
-    "phase_2": { "documents": [], "currentDocument": null, "errorHistory": {}, "completedFiles": [], "context": {}, "documentSummaries": {}, "scopeReductions": [] },
+    "phase_2": { "documents": [], "currentDocument": null, "completedFiles": [], "context": {}, "documentSummaries": {}, "scopeReductions": [] },
     "phase_3": { "currentRound": 0, "roundResults": [], "findingHistory": [] },
     "phase_4": { "verificationSteps": [], "designPolish": null }
   },
@@ -675,7 +675,7 @@ cmd_quality_gate() {
       lint_cmd=":"
       test_cmd="flutter test"
     else
-      build_cmd="dart compile exe lib/main.dart 2>/dev/null || true"
+      build_cmd="dart compile exe lib/main.dart 2>/dev/null"
       type_cmd="dart analyze"
       lint_cmd=":"
       test_cmd="dart test"
@@ -778,12 +778,14 @@ cmd_quality_gate() {
     local has_dod
     has_dod=$(jq 'has("dod")' "$PROGRESS_FILE")
     if [[ "$has_dod" == "true" ]]; then
-      local build_exit test_exit
+      local build_exit test_exit type_exit lint_exit
       build_exit=$(echo "$results" | jq '.build.exitCode // null')
       test_exit=$(echo "$results" | jq '.test.exitCode // null')
+      type_exit=$(echo "$results" | jq '.typeCheck.exitCode // null')
+      lint_exit=$(echo "$results" | jq '.lint.exitCode // null')
 
       # build_pass / test_pass 필드가 존재하는 경우만 업데이트
-      jq_inplace "$PROGRESS_FILE" --argjson be "$build_exit" --argjson te "$test_exit" --arg ev "quality-gate at $(timestamp)" '
+      jq_inplace "$PROGRESS_FILE" --argjson be "$build_exit" --argjson te "$test_exit" --argjson tye "$type_exit" --argjson le "$lint_exit" --arg ev "quality-gate at $(timestamp)" '
         # null (skipped)은 neutral — 기존 checked 값 유지
         (if .dod | has("build_pass") then
           .dod.build_pass.checked = (if $be == null then .dod.build_pass.checked else ($be == 0) end)
@@ -794,7 +796,7 @@ cmd_quality_gate() {
           | .dod.test_pass.evidence = (if $te == null then .dod.test_pass.evidence elif $te == 0 then "test pass " + $ev else "test fail " + $ev end)
         else . end)
         | (if has("consistencyChecks") then
-          .consistencyChecks.code_quality.checked = (($be == 0 or $be == null) and ($te == 0 or $te == null))
+          .consistencyChecks.code_quality.checked = (($be == 0 or $be == null) and ($te == 0 or $te == null) and ($tye == 0 or $tye == null) and ($le == 0 or $le == null))
           | .consistencyChecks.code_quality.evidence = $ev
         else . end)
       '

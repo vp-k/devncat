@@ -115,7 +115,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh record-error \
 Edit 도구 에러 처리:
 1. 즉시 파일 다시 읽기
 2. `old_string` 재확인 후 재시도 (최대 3회)
-3. 3회 실패 -> Write 덮어쓰기 -> 빌드/테스트 검증 -> 실패 시 `git stash` 후 해당 파일만 `git checkout -- {파일}` -> `git stash pop`으로 다른 변경 복원
+3. 3회 실패 -> Write 덮어쓰기 -> 빌드/테스트 검증 -> 실패 시 `git restore --source=HEAD -- {파일}`로 해당 파일만 롤백 (다른 변경에 영향 없음)
 
 ### Step 2-7: Phase 2 완료
 
