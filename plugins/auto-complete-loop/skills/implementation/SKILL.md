@@ -41,7 +41,7 @@ progress 파일에 아키텍처 맥락 저장 (크래시 복구용):
 
 초기 커밋 (롤백 기준점):
 ```bash
-git commit -am "[auto] 프로젝트 스캐폴딩 완료"
+git add -A && git commit -m "[auto] 프로젝트 스캐폴딩 완료"
 ```
 
 ### Step 2-3: 문서별 티켓 분할
@@ -91,7 +91,7 @@ git commit -am "[auto] 프로젝트 스캐폴딩 완료"
 5. **문서 완료 처리**
    - progress: 해당 문서 `completed`
    - `documentSummaries`에 핵심 결정 요약
-   - 자동 커밋: `git commit -am "[auto] {문서명} 구현 완료"`
+   - 자동 커밋: `git add -A && git commit -m "[auto] {문서명} 구현 완료"`
 
 ### Step 2-5: Fresh Context Verification (문서/티켓 완료 전 필수)
 

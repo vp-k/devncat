@@ -30,7 +30,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh init-ralph "ALL_DOCS_VERIFIED"
 
 `<promise>ALL_DOCS_VERIFIED</promise>`를 출력하려면 다음이 **모두** 참이어야 합니다:
 1. `.claude-progress.json`의 모든 문서 status가 `completed`
-2. `.claude-verification.json`의 모든 검증 항목이 통과 (build/typeCheck/lint/test는 `exitCode: 0`, secretScan/artifactCheck/smokeCheck/designPolish는 `result: "pass"` 또는 `result: "skip"`)
+2. `.claude-verification.json`의 모든 검증 항목이 통과 (build/typeCheck/lint/test는 `exitCode: 0`, secretScan/artifactCheck/smokeCheck/designPolish는 `result: "pass"` 또는 `result: "skip"` 또는 `result: "soft_fail"`)
 3. `.claude-progress.json`의 `dod` 체크리스트가 모두 checked
 4. 위 조건을 **직전에 확인**한 결과여야 함 (이전 iteration 결과 재사용 금지)
 
@@ -57,9 +57,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh init-ralph "ALL_DOCS_VERIFIED"
 DoD를 `.claude-progress.json`의 `dod` 필드에 기록:
 ```json
 "dod": {
-  "build_success": { "checked": false, "evidence": null },
-  "type_check": { "checked": false, "evidence": null },
-  "lint_pass": { "checked": false, "evidence": null },
+  "build_pass": { "checked": false, "evidence": null },
   "test_pass": { "checked": false, "evidence": null },
   "code_review": { "checked": false, "evidence": null },
   "e2e_pass": { "checked": false, "evidence": null }
@@ -112,7 +110,7 @@ README($2)에서:
    - `patterns`: 설계 패턴 (예: "Repository 패턴, Controller-Service 구조")
 
 5. **초기 커밋** (롤백 기준점)
-   - `git commit -am "[auto] 프로젝트 스캐폴딩 완료"`
+   - `git add -A && git commit -m "[auto] 프로젝트 스캐폴딩 완료"`
    - `lastCommitSha` 설정 (이후 롤백의 기준점)
 
 ## 3단계: 자동 구현 루프
@@ -159,7 +157,7 @@ README($2)에서:
    - `documentSummaries`에 해당 문서의 핵심 결정 요약 추가
      - 예: `"auth.md": "JWT 인증 (세션 서버 불필요), refresh token 7일, bcrypt 해싱"`
      - 결정 사항 + 간단한 이유 포함 (읽고 이해 가능한 수준)
-   - **자동 커밋**: `git commit -am "[auto] {문서명} 구현 완료"`
+   - **자동 커밋**: `git add -A && git commit -m "[auto] {문서명} 구현 완료"`
    - `lastCommitSha` 업데이트
    - 목록 끝까지 반복
 

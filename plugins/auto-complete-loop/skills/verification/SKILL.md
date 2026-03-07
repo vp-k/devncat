@@ -129,7 +129,7 @@ SOFT_FAIL: 개선 권장사항으로 처리 (차단하지 않음).
 
 디자인 수정 + 품질 게이트 통과 후:
 ```bash
-git commit -am "[auto] Phase 4 디자인 폴리싱 완료"
+git add -A && git commit -m "[auto] Phase 4 디자인 폴리싱 완료"
 ```
 
 ### Step 4-6: 아티팩트/스모크 체크
@@ -151,7 +151,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh smoke-check --progress-file .c
 
 자동 커밋:
 ```bash
-git commit -am "[auto] 최종 검증 및 폴리싱 완료"
+git add -A && git commit -m "[auto] 최종 검증 및 폴리싱 완료"
 ```
 
 DoD 전체 checked 확인 후, Phase 전이는 오케스트레이터가 수행.

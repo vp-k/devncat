@@ -52,7 +52,7 @@ Ralph/progress/promise 코드 없음 — 오케스트레이터가 관리.
 
 4. **자동 커밋** (품질 게이트 통과 시):
    ```bash
-   git commit -am "[auto] Phase 3 코드 리뷰 Round N 수정 완료"
+   git add -A && git commit -m "[auto] Phase 3 코드 리뷰 Round N 수정 완료"
    ```
 
 5. **다음 라운드** 또는 완료 판단

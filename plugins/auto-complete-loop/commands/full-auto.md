@@ -56,7 +56,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh init-ralph "FULL_AUTO_COMPLETE
 `<promise>FULL_AUTO_COMPLETE</promise>`를 출력하려면 다음이 **모두** 참이어야 합니다:
 1. `.claude-full-auto-progress.json`의 모든 steps status가 `completed`
 2. `.claude-full-auto-progress.json`의 `dod` 체크리스트가 모두 checked
-3. `.claude-verification.json`의 모든 검증 항목이 통과 (build/typeCheck/lint/test는 `exitCode: 0`, secretScan/artifactCheck/smokeCheck/designPolish는 `result: "pass"` 또는 `result: "skip"`)
+3. `.claude-verification.json`의 모든 검증 항목이 통과 (build/typeCheck/lint/test는 `exitCode: 0`, secretScan/artifactCheck/smokeCheck/designPolish는 `result: "pass"` 또는 `result: "skip"` 또는 `result: "soft_fail"`)
 4. 위 조건을 **직전에 확인**한 결과여야 함 (이전 iteration 결과 재사용 금지)
 
 ### Iteration 단위 작업 규칙

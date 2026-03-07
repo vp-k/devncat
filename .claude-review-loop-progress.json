@@ -4,7 +4,7 @@
   "goal": "finding 0개",
   "goalMet": false,
   "scope": "plugins/auto-complete-loop/ 전체",
-  "currentRound": 3,
+  "currentRound": 4,
   "status": "in_progress",
   "roundResults": [
     {
@@ -49,6 +49,27 @@
       },
       "verification": "bash -n syntax check passed",
       "timestamp": "2026-03-07T10:09:09Z"
+    },
+    {
+      "round": 3,
+      "findings": {
+        "total": 6,
+        "confirmed": 3,
+        "dismissed": 3,
+        "bySeverity": {
+          "CRITICAL": 1,
+          "HIGH": 2,
+          "MEDIUM": 0,
+          "LOW": 0
+        }
+      },
+      "fixes": {
+        "attempted": 3,
+        "succeeded": 3,
+        "failed": 0
+      },
+      "verification": "bash -n syntax check passed",
+      "timestamp": "2026-03-07T11:15:00Z"
     }
   ],
   "findingHistory": [
@@ -161,6 +182,39 @@
       "discoveredInRound": 2,
       "status": "fixed",
       "fixedInRound": 2
+    },
+    {
+      "id": "SEC-CRITICAL-R3-01",
+      "file": "stop-hook.sh",
+      "line": 155,
+      "description": "stop-hook only checks exitCode, missing result-based gates",
+      "severity": "CRITICAL",
+      "category": "SEC",
+      "discoveredInRound": 3,
+      "status": "fixed",
+      "fixedInRound": 3
+    },
+    {
+      "id": "ERR-HIGH-R3-02",
+      "file": "shared-gate.sh",
+      "line": 1796,
+      "description": "design-polish capture_exit not used in pass/fail",
+      "severity": "HIGH",
+      "category": "ERR",
+      "discoveredInRound": 3,
+      "status": "fixed",
+      "fixedInRound": 3
+    },
+    {
+      "id": "DATA-HIGH-R3-03",
+      "file": "shared-gate.sh",
+      "line": 1700,
+      "description": "design-polish SKIP DoD update inconsistent across branches",
+      "severity": "HIGH",
+      "category": "DATA",
+      "discoveredInRound": 3,
+      "status": "fixed",
+      "fixedInRound": 3
     }
   ],
   "dod": {
@@ -173,13 +227,13 @@
       "evidence": null
     },
     "no_critical_high": {
-      "checked": false,
-      "evidence": null
+      "checked": true,
+      "evidence": "open CRITICAL: 0, HIGH: 0 (all fixed)"
     }
   },
   "handoff": {
-    "lastRound": 2,
-    "nextSteps": "Round 3: codex re-review",
-    "context": "Fixed 5 findings (1 CRITICAL, 3 HIGH, 1 MEDIUM). Dismissed 2 (secret-scan scope, single in_progress enforcement). All confirmed findings from Round 1 remain fixed."
+    "lastRound": 3,
+    "nextSteps": "Round 4: codex re-review after Round 3 fixes (stop-hook result gates, capture_exit, SKIP DoD consistency)",
+    "context": "Round 3: 6 findings from codex, 3 confirmed/fixed (1 CRITICAL, 2 HIGH), 3 dismissed. Key fixes: stop-hook now checks result-based gates, capture_exit used in design-polish judgment, all SKIP branches update DoD consistently."
   }
 }

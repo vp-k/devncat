@@ -92,9 +92,15 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
     # 1. progress 파일 검증 (존재하는 경우)
     # 프론트매터에 지정된 파일만 검증. 미지정 시 기존 glob 폴백 (하위 호환)
     VERIFIED_PROGRESS_FILES=()
-    if [[ -n "${PROGRESS_FILE_FROM_FRONTMATTER:-}" ]] && [[ -f "$PROGRESS_FILE_FROM_FRONTMATTER" ]]; then
-      PROGRESS_FILES_TO_CHECK=("$PROGRESS_FILE_FROM_FRONTMATTER")
+    if [[ -n "${PROGRESS_FILE_FROM_FRONTMATTER:-}" ]]; then
+      # frontmatter에 지정된 파일만 사용 (파일 부재 시 glob fallback 금지)
+      if [[ -f "$PROGRESS_FILE_FROM_FRONTMATTER" ]]; then
+        PROGRESS_FILES_TO_CHECK=("$PROGRESS_FILE_FROM_FRONTMATTER")
+      else
+        PROGRESS_FILES_TO_CHECK=()
+      fi
     else
+      # frontmatter 미지정 시 glob 폴백 (하위 호환)
       PROGRESS_FILES_TO_CHECK=()
       for pf in .claude-*progress*.json; do
         [[ -f "$pf" ]] && PROGRESS_FILES_TO_CHECK+=("$pf")
@@ -168,7 +174,7 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
 
       # result 기반 게이트 (secretScan/artifactCheck/smokeCheck/designPolish): result != "fail"
       ALL_RESULTS_OK=$(jq '
-        [to_entries[] | select(.value | type == "object" and has("result") and .value.result != null) | .value.result]
+        [to_entries[] | select(.value | type == "object" and has("result") and .result != null) | .value.result]
         | if length == 0 then true
           else all(. == "pass" or . == "skip" or . == "soft_fail")
           end

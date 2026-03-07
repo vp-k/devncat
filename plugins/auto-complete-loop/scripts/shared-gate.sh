@@ -1175,13 +1175,15 @@ cmd_record_error() {
   current_escalation=$(jq -r '.errorHistory.escalationLevel // "L0"' "$PROGRESS_FILE")
   current_budget=$(jq '.errorHistory.escalationBudget // 3' "$PROGRESS_FILE")
 
-  # --reset-count 시 카운터 리셋 + 에스컬레이션 레벨 전환
+  # --level이 제공되면 에스컬레이션 레벨/예산 항상 반영
+  if [[ -n "$err_level" ]]; then
+    current_escalation="$err_level"
+    current_budget="${level_budget[$err_level]:-3}"
+  fi
+
+  # --reset-count 시 카운터 리셋
   if [[ "$reset_count" == "true" ]]; then
     current_count=0
-    if [[ -n "$err_level" ]]; then
-      current_escalation="$err_level"
-      current_budget="${level_budget[$err_level]:-3}"
-    fi
   fi
 
   # 동일 에러 판별 (type + file + 메시지 핵심 일치)
