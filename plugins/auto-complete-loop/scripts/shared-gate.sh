@@ -261,9 +261,7 @@ ENDJSON
   "status": "in_progress",
   "documents": [],
   "dod": {
-    "build_success": { "checked": false, "evidence": null },
-    "type_check": { "checked": false, "evidence": null },
-    "lint_pass": { "checked": false, "evidence": null },
+    "build_pass": { "checked": false, "evidence": null },
     "test_pass": { "checked": false, "evidence": null },
     "code_review": { "checked": false, "evidence": null },
     "e2e_pass": { "checked": false, "evidence": null }
@@ -768,8 +766,14 @@ cmd_quality_gate() {
 
   results="$results}"
 
-  # verification.json 기록
-  echo "$results" | jq '.' > "$VERIFICATION_FILE"
+  # verification.json 기록 (기존 데이터 보존, qualityGate 키만 merge)
+  local parsed_results
+  parsed_results=$(echo "$results" | jq '.')
+  if [[ -f "$VERIFICATION_FILE" ]]; then
+    jq_inplace "$VERIFICATION_FILE" --argjson qg "$parsed_results" '. * {"build": $qg.build, "typeCheck": $qg.typeCheck, "lint": $qg.lint, "test": $qg.test}'
+  else
+    echo "$parsed_results" > "$VERIFICATION_FILE"
+  fi
   echo ""
   echo "Results saved to $VERIFICATION_FILE"
 
@@ -883,8 +887,10 @@ cmd_secret_scan() {
       local match_count
       match_count=$(echo "$matches" | wc -l)
       found=$((found + match_count))
+      local masked_matches
+      masked_matches=$(echo "$matches" | sed 's/\(:[0-9]*:\).*$/\1 [SECRET VALUE MASKED]/')
       details="${details}Pattern: $pattern
-$matches
+$masked_matches
 "
     fi
   done
