@@ -6,6 +6,25 @@ const path = require('path');
 const os = require('os');
 
 // ============================================
+// 유틸리티
+// ============================================
+
+// 라우트 경로를 안전한 파일명으로 변환 (path traversal 방지)
+function sanitizeRouteName(route) {
+  const name = route === '/' ? 'main' : route.slice(1);
+  return name.replace(/[^a-zA-Z0-9_-]/g, '-');
+}
+
+// 파일 저장 전 경로 이탈 방지 검증
+function validatePathWithinDir(filepath, baseDir) {
+  const resolved = path.resolve(filepath);
+  const base = path.resolve(baseDir) + path.sep;
+  if (!resolved.startsWith(base) && resolved !== path.resolve(baseDir)) {
+    throw new Error(`Path escapes base directory: ${filepath}`);
+  }
+}
+
+// ============================================
 // 설정
 // ============================================
 
@@ -132,6 +151,7 @@ function saveAccessibilityReport(report, filename = 'wcag-report.json') {
 
   ensureDir(CONFIG.accessibilityDir);
   const filepath = path.join(CONFIG.accessibilityDir, filename);
+  validatePathWithinDir(filepath, CONFIG.accessibilityDir);
   fs.writeFileSync(filepath, JSON.stringify(report, null, 2));
   console.log(`WCAG report saved: ${filename}`);
 }
@@ -169,8 +189,9 @@ async function captureLocal(routes, options = { wcag: true }) {
 
   for (const route of routes) {
     const url = CONFIG.baseUrl + route;
-    const filename = route === '/' ? 'current-main.png' : `current-${route.slice(1).replace(/\//g, '-')}.png`;
+    const filename = `current-${sanitizeRouteName(route)}.png`;
     const filepath = path.join(CONFIG.outputDir, filename);
+    validatePathWithinDir(filepath, CONFIG.outputDir);
 
     try {
       console.log(`Capturing: ${url}`);
@@ -295,7 +316,7 @@ async function wcagOnly(routes) {
 
       const report = await runAccessibilityCheck(page, url);
       if (report) {
-        const filename = route === '/' ? 'wcag-report.json' : `wcag-report-${route.slice(1).replace(/\//g, '-')}.json`;
+        const filename = `wcag-report-${sanitizeRouteName(route)}.json`;
         saveAccessibilityReport(report, filename);
         reports.push(report);
 
@@ -367,8 +388,10 @@ Output:
 }
 
 function printJsonResult(type, data) {
+  const results = data.results || data.screenshots || [];
+  const allSuccess = results.length > 0 && results.every(r => r.success !== false);
   const output = {
-    success: true,
+    success: allSuccess,
     type,
     outputDir: CONFIG.outputDir,
     ...data

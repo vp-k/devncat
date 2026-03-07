@@ -99,6 +99,16 @@ parse_progress_file_arg() {
     case "$1" in
       --progress-file)
         PROGRESS_FILE="${2:?--progress-file requires a path}"
+        # 경로 검증: 절대경로/.. 차단, allowlist 패턴
+        if [[ "$PROGRESS_FILE" == /* ]]; then
+          die "--progress-file must be a relative path, got '$PROGRESS_FILE'"
+        fi
+        if [[ "$PROGRESS_FILE" == *..* ]]; then
+          die "--progress-file must not contain '..', got '$PROGRESS_FILE'"
+        fi
+        if [[ ! "$PROGRESS_FILE" =~ ^\.claude-.*progress.*\.json$ ]]; then
+          die "--progress-file must match pattern '.claude-*progress*.json', got '$PROGRESS_FILE'"
+        fi
         shift 2
         ;;
       *)
@@ -1820,12 +1830,17 @@ cmd_design_polish_gate() {
   # WCAG 리포트 요약
   local wcag_violations=0
   local wcag_summary="no report"
-  if [[ -f ".design-polish/accessibility/wcag-report.json" ]]; then
-    wcag_violations=$(jq '[.violations // [] | .[]] | length' ".design-polish/accessibility/wcag-report.json" 2>/dev/null || echo "0")
+  local wcag_report_missing=false
+  if [[ -f ".design-polish/accessibility/wcag-report.json" ]] || [[ -f ".design-polish/accessibility/wcag-report-main.json" ]]; then
+    local wcag_file=".design-polish/accessibility/wcag-report.json"
+    [[ -f "$wcag_file" ]] || wcag_file=".design-polish/accessibility/wcag-report-main.json"
+    wcag_violations=$(jq '[.violations // [] | .[]] | length' "$wcag_file" 2>/dev/null || echo "0")
     wcag_summary="$wcag_violations violations found"
     echo "[design-polish-gate] WCAG: $wcag_summary"
   else
     echo "[design-polish-gate] WARNING: WCAG report not generated"
+    wcag_report_missing=true
+    wcag_summary="report not generated"
   fi
 
   # 스크린샷 확인
@@ -1839,6 +1854,8 @@ cmd_design_polish_gate() {
   local ts result
   ts=$(timestamp)
   if [[ "$capture_exit" -ne 0 ]]; then
+    result="soft_fail"
+  elif [[ "$wcag_report_missing" == "true" ]]; then
     result="soft_fail"
   elif [[ "$wcag_violations" -gt 0 ]]; then
     result="soft_fail"
