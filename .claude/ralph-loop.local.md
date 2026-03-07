@@ -1,10 +1,10 @@
 ---
 active: true
 iteration: 1
-max_iterations: 5
+max_iterations: 10
 completion_promise: "REVIEW_LOOP_COMPLETE"
 progress_file: ".claude-review-loop-progress.json"
-started_at: "2026-03-07T09:53:54Z"
+started_at: "2026-03-07T14:23:16Z"
 ---
 
 이전 작업을 이어서 진행합니다.

@@ -10,6 +10,10 @@
     "./skills/doc-planning",
     "./skills/implementation",
     "./skills/code-review",
-    "./skills/verification"
+    "./skills/verification",
+    "./skills/post-analysis/metrics-recommendation",
+    "./skills/post-analysis/retrospective",
+    "./skills/post-analysis/launch-analysis",
+    "./skills/post-analysis/competitive-frame"
   ]
 }

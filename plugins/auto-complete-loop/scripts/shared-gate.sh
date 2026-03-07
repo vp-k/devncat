@@ -836,26 +836,16 @@ cmd_secret_scan() {
     'eyJ[a-zA-Z0-9_-]*\.eyJ[a-zA-Z0-9_-]*\.'
   )
 
-  # 스캔 대상 디렉토리 (존재하는 것만)
-  local scan_dirs=()
-  for d in src app lib server api; do
-    [[ -d "$d" ]] && scan_dirs+=("$d")
+  # 루트 재귀 스캔 (exclude로 불필요 디렉토리 제외)
+  local scan_dirs=(".")
+
+  # .env 파일 별도 스캔 (.env.example 제외)
+  local env_files=()
+  for f in .env .env.local .env.development .env.production .env.staging .env.test; do
+    [[ -f "$f" ]] && env_files+=("$f")
   done
 
-  # 루트 설정 파일
-  local scan_files=()
-  for f in *.json *.yaml *.yml *.toml *.cfg *.conf *.ini; do
-    # glob이 매칭 안 되면 리터럴 문자열이므로 -f 체크
-    [[ -f "$f" ]] && scan_files+=("$f")
-  done
-
-  # 스캔 대상이 없으면 스킵
-  if [[ ${#scan_dirs[@]} -eq 0 ]] && [[ ${#scan_files[@]} -eq 0 ]]; then
-    echo "[secret-scan] SKIP (no scannable directories or files)"
-    return 0
-  fi
-
-  # 제외 패턴
+  # 제외 패턴 (불필요 디렉토리 + 바이너리/벤더 파일)
   local exclude_args=(
     --exclude-dir=node_modules
     --exclude-dir=dist
@@ -863,28 +853,35 @@ cmd_secret_scan() {
     --exclude-dir=.git
     --exclude-dir=.next
     --exclude-dir=__pycache__
+    --exclude-dir=.dart_tool
+    --exclude-dir=.pub-cache
+    --exclude-dir=vendor
+    --exclude-dir=coverage
     --exclude='*.lock'
     --exclude='*.min.js'
     --exclude='*.min.css'
     --exclude='.env.example'
     --exclude='*.map'
+    --exclude='*.png'
+    --exclude='*.jpg'
+    --exclude='*.woff'
+    --exclude='*.woff2'
+    --exclude='*.ttf'
   )
 
   local details=""
 
   for pattern in "${patterns[@]}"; do
     local matches=""
-    # 디렉토리 스캔
-    if [[ ${#scan_dirs[@]} -gt 0 ]]; then
-      matches=$(grep -rn -E "$pattern" "${exclude_args[@]}" "${scan_dirs[@]}" 2>/dev/null || true)
-    fi
-    # 루트 설정 파일 스캔
-    if [[ ${#scan_files[@]} -gt 0 ]]; then
-      local file_matches
-      file_matches=$(grep -n -E "$pattern" "${scan_files[@]}" 2>/dev/null || true)
-      if [[ -n "$file_matches" ]]; then
+    # 루트 재귀 스캔
+    matches=$(grep -rn -E "$pattern" "${exclude_args[@]}" "${scan_dirs[@]}" 2>/dev/null || true)
+    # .env 파일 별도 스캔
+    if [[ ${#env_files[@]} -gt 0 ]]; then
+      local env_matches
+      env_matches=$(grep -n -E "$pattern" "${env_files[@]}" 2>/dev/null || true)
+      if [[ -n "$env_matches" ]]; then
         matches="${matches:+$matches
-}$file_matches"
+}$env_matches"
       fi
     fi
 

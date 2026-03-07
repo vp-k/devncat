@@ -154,8 +154,16 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
               VERIFICATION_PASSED="false"
               FAILURE_REASONS="${FAILURE_REASONS}$PROGRESS_FILE: DoD checklist not all checked. "
             fi
+          else
+            VERIFICATION_PASSED="false"
+            FAILURE_REASONS="${FAILURE_REASONS}$PROGRESS_FILE: DoD is empty (no completion criteria defined). "
           fi
-          # dod가 빈 객체이면 검증 건너뜀 (DoD 미설정 상태)
+        fi
+
+        # fail-closed: progress 파일에 documents/steps/dod 중 하나도 없으면 검증 실패
+        if [[ "$HAS_DOCUMENTS" != "true" ]] && [[ "$HAS_STEPS" != "true" ]] && [[ "$HAS_DOD" != "true" ]]; then
+          VERIFICATION_PASSED="false"
+          FAILURE_REASONS="${FAILURE_REASONS}$PROGRESS_FILE: no documents, steps, or dod found (empty progress). "
         fi
       fi
     done
@@ -168,7 +176,7 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
       # exitCode 기반 게이트 (build/typeCheck/lint/test): exitCode == 0
       ALL_EXITCODES_OK=$(jq '
         [to_entries[] | select(.value | type == "object" and has("exitCode") and .exitCode != null) | .value.exitCode]
-        | if length == 0 then true
+        | if length == 0 then false
           else all(. == 0)
           end
       ' .claude-verification.json 2>/dev/null || echo "false")
@@ -185,6 +193,14 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
           else all(. == "pass" or . == "skip" or . == "soft_fail")
           end
       ' .claude-verification.json 2>/dev/null || echo "false")
+
+      # fail-closed: verification.json에 exitCode 기반 게이트가 하나도 없으면 검증 불충분
+      if [[ "$ALL_EXITCODES_OK" = "false" ]]; then
+        HAS_ANY_GATE=$(jq '[to_entries[] | select(.value | type == "object" and has("exitCode"))] | length' .claude-verification.json 2>/dev/null || echo "0")
+        if [[ "$HAS_ANY_GATE" = "0" ]]; then
+          FAILURE_REASONS="${FAILURE_REASONS}.claude-verification.json: no quality gate entries found (empty verification). "
+        fi
+      fi
 
       if [[ "$ALL_RESULTS_OK" != "true" ]]; then
         VERIFICATION_PASSED="false"
@@ -216,8 +232,11 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
       REPEAT_COUNT=$((REPEAT_COUNT + 1))
 
       if [[ $REPEAT_COUNT -ge 3 ]]; then
-        echo "Auto Complete Loop: Same failure repeated ${REPEAT_COUNT} times. Breaking loop."
+        echo "Auto Complete Loop: WARNING - Same failure repeated ${REPEAT_COUNT} times. Breaking loop due to unresolvable verification failures."
+        echo "Auto Complete Loop: Unresolved issues: ${FAILURE_REASONS}"
+        echo "Auto Complete Loop: Progress files preserved for manual inspection."
         rm -f "$RALPH_STATE_FILE" "$FAILURE_HISTORY_FILE"
+        # exit 0 to stop the loop, but progress files are NOT deleted (unlike success path)
         exit 0
       fi
       # 아래의 루프 계속 로직으로 진행
