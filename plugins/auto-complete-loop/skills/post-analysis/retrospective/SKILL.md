@@ -14,26 +14,30 @@ Progress JSON과 Git Log를 데이터 기반으로 분석하여 회고 보고서
 
 `.claude-full-auto-progress.json`이 존재할 경우:
 
-1. **Phase별 iteration 횟수**: 각 Phase가 몇 번 반복되었는지 집계
-2. **Phase별 소요 시간**: timestamps에서 시작~종료 계산
-3. **에러 로그 분석**: errorLog 배열에서 에러 유형별 빈도 집계
-4. **재시도 패턴**: 같은 Phase에서 반복된 실패 패턴 식별
+1. **Phase별 iteration 횟수**: `steps` 배열의 각 Phase status 변경 이력 또는 `roundResults` 배열에서 집계
+2. **Phase별 소요 시간**: `created` 타임스탬프와 `roundResults[].timestamp`에서 시작~종료 계산
+3. **에러 로그 분석**: `errorHistory` 객체에서 에러 유형별 빈도 집계 (필드 미존재 시 스킵)
+4. **재시도 패턴**: 같은 Phase에서 반복된 실패 패턴 식별 (`errorHistory.escalationLog` 참조)
 
 없을 경우 이 Step을 스킵하고 Step 2로 진행합니다.
 
 ### Step 2: Git Log 분석
 
 ```bash
-git log --oneline -50
-git log --format="%H %ai %s" -50
-# 커밋 존재 여부 확인 후 실행 (빈 저장소 대응)
-FIRST_COMMIT=$(git log --reverse --format="%H" 2>/dev/null | head -1)
-if [[ -n "$FIRST_COMMIT" ]]; then
-  git diff --stat "$FIRST_COMMIT"..HEAD
+# 커밋 존재 여부를 먼저 확인 (빈 저장소 대응)
+if git rev-parse --verify HEAD &>/dev/null; then
+  git log --oneline -50
+  git log --format="%H %ai %s" -50
+  FIRST_COMMIT=$(git log --reverse --format="%H" | head -1)
+  if [[ -n "$FIRST_COMMIT" ]]; then
+    git diff --stat "$FIRST_COMMIT"..HEAD
+  fi
+else
+  echo "커밋 데이터 없음"
 fi
 ```
 
-> 커밋이 없는 저장소에서는 Git Log 분석을 "커밋 데이터 없음"으로 대체합니다.
+> 커밋이 없는 저장소에서는 모든 Git 명령을 스킵하고 "커밋 데이터 없음"으로 대체합니다.
 
 분석 항목:
 

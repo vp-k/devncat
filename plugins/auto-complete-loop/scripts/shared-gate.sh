@@ -606,6 +606,13 @@ cmd_update_step() {
   local valid_statuses="pending in_progress completed"
   echo "$valid_statuses" | grep -qw "$new_status" || die "Invalid status: $new_status. Valid: $valid_statuses"
 
+  # progress 파일에 steps 배열이 있는지 확인
+  local has_steps
+  has_steps=$(jq 'has("steps") and (.steps | type == "array")' "$PROGRESS_FILE" 2>/dev/null || echo "false")
+  if [[ "$has_steps" != "true" ]]; then
+    die "update-step: progress file has no 'steps' array. This template may use 'documents' instead. File: $PROGRESS_FILE"
+  fi
+
   # progress 파일에서 해당 step이 존재하는지 동적으로 확인
   local step_exists
   step_exists=$(jq --arg name "$step_name" '[.steps[] | select(.name == $name)] | length' "$PROGRESS_FILE")
@@ -1684,7 +1691,7 @@ cmd_design_polish_gate() {
       has_dq=$(jq '.dod | has("design_quality")' "$PROGRESS_FILE" 2>/dev/null || echo "false")
       if [[ "$has_dq" == "true" ]]; then
         jq_inplace "$PROGRESS_FILE" --arg ev "SKIP: $reason" '
-          .dod.design_quality.checked = true
+          .dod.design_quality.checked = false
           | .dod.design_quality.evidence = $ev
         '
       fi
