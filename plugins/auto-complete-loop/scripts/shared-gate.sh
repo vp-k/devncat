@@ -732,6 +732,7 @@ cmd_quality_gate() {
   local results="{\"timestamp\": \"$ts\", \"environment\": {\"node\": $(jq -Rn --arg v "$env_node" '$v'), \"npm\": $(jq -Rn --arg v "$env_npm" '$v'), \"os\": $(jq -Rn --arg v "$env_os" '$v'), \"cwd\": $(jq -Rn --arg v "$env_cwd" '$v')${env_extra}}"
   local all_pass=true
   local gate_summary=""
+  local any_ran=false
 
   run_gate() {
     local name="$1" cmd="$2"
@@ -740,6 +741,7 @@ cmd_quality_gate() {
       results="$results, \"$name\": {\"command\": null, \"exitCode\": null, \"summary\": \"skipped\"}"
       return
     fi
+    any_ran=true
 
     echo "[$name] Running: $cmd"
     local output exit_code
@@ -807,7 +809,10 @@ cmd_quality_gate() {
     fi
   fi
 
-  if [[ "$all_pass" == "true" ]]; then
+  if [[ "$any_ran" == "false" ]]; then
+    echo "=== WARNING: ALL GATES SKIPPED (no project type detected) ==="
+    return 1
+  elif [[ "$all_pass" == "true" ]]; then
     echo "=== ALL GATES PASSED ==="
     return 0
   else
@@ -1316,7 +1321,7 @@ cmd_find_debug_code() {
   # 언어별 디버그 패턴
   # JavaScript/TypeScript
   if ls "$search_dir"/**/*.{js,ts,jsx,tsx} 2>/dev/null | head -1 >/dev/null 2>&1 || \
-     find "$search_dir" -maxdepth 5 -name "*.js" -o -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" 2>/dev/null | head -1 >/dev/null 2>&1; then
+     find "$search_dir" -maxdepth 5 \( -name "*.js" -o -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" \) 2>/dev/null | head -1 >/dev/null 2>&1; then
     echo ""
     echo "[JS/TS] console.log/debug/debugger:"
     local js_debug
@@ -1526,11 +1531,13 @@ cmd_doc_code_check() {
   # 3. 테스트 존재 여부
   echo ""
   echo "[3] Test Coverage"
-  local test_dirs
-  test_dirs=$(find . -type d \( -name "test" -o -name "tests" -o -name "__tests__" -o -name "spec" \) 2>/dev/null | head -5 || true)
-  if [[ -n "$test_dirs" ]]; then
+  local -a test_dirs_arr=()
+  while IFS= read -r d; do
+    [[ -n "$d" ]] && test_dirs_arr+=("$d")
+  done < <(find . -type d \( -name "test" -o -name "tests" -o -name "__tests__" -o -name "spec" \) 2>/dev/null | head -5)
+  if [[ ${#test_dirs_arr[@]} -gt 0 ]]; then
     local test_count
-    test_count=$(find $test_dirs -type f \( -name "*.test.*" -o -name "*.spec.*" -o -name "*_test.*" -o -name "test_*" \) 2>/dev/null | wc -l)
+    test_count=$(find "${test_dirs_arr[@]}" -type f \( -name "*.test.*" -o -name "*.spec.*" -o -name "*_test.*" -o -name "test_*" \) 2>/dev/null | wc -l)
     echo "  Test files found: $test_count"
   else
     echo "  WARNING: No test directories found"

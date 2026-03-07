@@ -56,7 +56,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh init-ralph "FULL_AUTO_COMPLETE
 `<promise>FULL_AUTO_COMPLETE</promise>`를 출력하려면 다음이 **모두** 참이어야 합니다:
 1. `.claude-full-auto-progress.json`의 모든 steps status가 `completed`
 2. `.claude-full-auto-progress.json`의 `dod` 체크리스트가 모두 checked
-3. `.claude-verification.json`의 모든 검증 항목 exitCode가 0
+3. `.claude-verification.json`의 모든 검증 항목이 통과 (build/typeCheck/lint/test는 `exitCode: 0`, secretScan/artifactCheck/smokeCheck/designPolish는 `result: "pass"` 또는 `result: "skip"`)
 4. 위 조건을 **직전에 확인**한 결과여야 함 (이전 iteration 결과 재사용 금지)
 
 ### Iteration 단위 작업 규칙
@@ -104,8 +104,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh update-phase phase_1 completed
 ### Phase 0 → Phase 1
 
 ```
-Progress 초기화 (Phase 0 진입 전):
-  bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh init "$PROJECT_NAME" "$REQUIREMENT" --progress-file .claude-full-auto-progress.json
+Progress 초기화 (Phase 0 진입 전 — $ARGUMENTS에서 프로젝트명과 요구사항을 추출하여 전달):
+  bash ${CLAUDE_PLUGIN_ROOT}/scripts/shared-gate.sh init "<$ARGUMENTS에서 추출한 프로젝트명>" "<$ARGUMENTS 원문>" --progress-file .claude-full-auto-progress.json
 Phase 0 진입 → Read ${CLAUDE_PLUGIN_ROOT}/skills/pm-planning/SKILL.md
 Phase 0 스킬의 Step 0-0 ~ 0-10 수행 (Step 0-11은 outputs 기록만, init 없음)
 Phase 0 완료 시:

@@ -432,7 +432,7 @@ codex exec --skip-git-repo-check '## 근본 원인 분석 요청
 **L3: 완전히 다른 접근법 (3회, codex 분석 기반)**
 
 설계/아키텍처 수준 전환 (REST→GraphQL, CSR→SSR, WebSocket→폴링 등):
-1. **롤백**: `git reset --hard {lastCommitSha}` (마지막 성공 커밋으로)
+1. **롤백**: `git restore --source={lastCommitSha} -- .` (마지막 성공 커밋 기준 복원, 커밋 히스토리 보존)
 2. codex 분석 결과 기반으로 다시 구현
 3. `phase` → `implementing` (처음부터 다시 구현)
 4. 3회 소진 시 → L4로 에스컬레이트
@@ -467,7 +467,7 @@ codex exec --skip-git-repo-check '## 근본 원인 분석 요청
    - git이 있으므로 별도 백업 불필요 (`git diff`로 복구 가능)
    - `Write` 도구로 전체 파일 덮어쓰기
    - 즉시 빌드/테스트로 검증
-   - 실패 시 `git checkout -- {파일}`로 복구
+   - 실패 시 `git restore --source=HEAD -- {파일}`로 해당 파일만 복구
 
 **원칙:** Edit 실패는 즉시 해결 (다음 작업 진행 금지)
 
