@@ -153,17 +153,30 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
 
     # 2. .claude-verification.json 검증 (존재하는 경우)
     if [[ -f ".claude-verification.json" ]]; then
-      # exitCode 필드들 수집 (존재하는 항목만)
-      ALL_VERIFIED=$(jq '
+      # exitCode 기반 게이트 (build/typeCheck/lint/test): exitCode == 0
+      ALL_EXITCODES_OK=$(jq '
         [to_entries[] | select(.value | type == "object" and has("exitCode") and .exitCode != null) | .value.exitCode]
         | if length == 0 then true
           else all(. == 0)
           end
       ' .claude-verification.json 2>/dev/null || echo "false")
 
-      if [[ "$ALL_VERIFIED" != "true" ]]; then
+      if [[ "$ALL_EXITCODES_OK" != "true" ]]; then
         VERIFICATION_PASSED="false"
-        FAILURE_REASONS="${FAILURE_REASONS}.claude-verification.json: verification incomplete or exitCodes not all 0. "
+        FAILURE_REASONS="${FAILURE_REASONS}.claude-verification.json: exitCode-based gates not all 0. "
+      fi
+
+      # result 기반 게이트 (secretScan/artifactCheck/smokeCheck/designPolish): result != "fail"
+      ALL_RESULTS_OK=$(jq '
+        [to_entries[] | select(.value | type == "object" and has("result") and .value.result != null) | .value.result]
+        | if length == 0 then true
+          else all(. == "pass" or . == "skip" or . == "soft_fail")
+          end
+      ' .claude-verification.json 2>/dev/null || echo "false")
+
+      if [[ "$ALL_RESULTS_OK" != "true" ]]; then
+        VERIFICATION_PASSED="false"
+        FAILURE_REASONS="${FAILURE_REASONS}.claude-verification.json: result-based gates have failures (fail). "
       fi
     fi
 

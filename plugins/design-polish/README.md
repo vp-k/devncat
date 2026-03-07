@@ -32,10 +32,14 @@ plugins/design-polish/
 ├── scripts/
 │   ├── capture.cjs               # Puppeteer screenshot + axe-core
 │   └── search.cjs                # BM25 search engine (Node.js)
-├── skills/design-polish/
-│   └── SKILL.md                  # Skill specification
+├── skills/
+│   ├── design-polish/
+│   │   └── SKILL.md              # Polish skill specification
+│   └── design-renewal/
+│       └── SKILL.md              # Renewal skill specification
 ├── commands/
-│   └── design-polish.md          # Command definition
+│   ├── design-polish.md          # Polish command definition
+│   └── design-renewal.md         # Renewal command definition
 ├── package.json
 └── README.md
 ```
@@ -55,6 +59,8 @@ npm install
 
 In Claude Code:
 
+### /design-polish — Non-destructive polishing
+
 ```
 /design-polish                    # Full polishing + WCAG check
 /design-polish --apply            # Polish + apply changes
@@ -63,6 +69,29 @@ In Claude Code:
 /design-polish godly hero         # Search Godly for hero section
 /design-polish --apply godly hero # Search + apply
 ```
+
+### /design-renewal — Full design system renewal
+
+```
+/design-renewal                          # Full renewal (analyze + apply)
+/design-renewal --analyze                # Analysis only (no code changes)
+/design-renewal glassmorphism            # Glassmorphism style renewal
+/design-renewal dark                     # Dark theme renewal
+/design-renewal minimal godly            # Minimal style, Godly reference
+/design-renewal --wcag-only              # WCAG check only
+/design-renewal brutalist mobbin hero    # Brutalism, Mobbin hero search
+```
+
+### Comparison
+
+| | /design-polish | /design-renewal |
+|--|---------------|-----------------|
+| Scope | Tweaks (CSS fixes) | Full renewal (design system swap) |
+| Colors | Contrast fixes | Entire palette replacement |
+| Layout | Margin/alignment | Structure reorganization |
+| Components | hover/focus fixes | Full style overhaul |
+| Typography | Size/line-height | Font pairing replacement |
+| Risk | Low (non-destructive) | High (large-scale changes) |
 
 ## search.cjs — BM25 Search CLI
 

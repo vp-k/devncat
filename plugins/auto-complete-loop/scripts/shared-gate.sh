@@ -1662,7 +1662,7 @@ cmd_design_polish_gate() {
   echo "=== Design Polish Gate ==="
   require_jq
 
-  # SKIP 분기 공통 기록 헬퍼
+  # SKIP 분기 공통 기록 헬퍼 (verification.json + DoD 동시 업데이트)
   _dp_record_skip() {
     local reason="$1"
     local ts
@@ -1673,6 +1673,17 @@ cmd_design_polish_gate() {
     else
       jq -n --arg ts "$ts" --arg r "$reason" \
         '{"designPolish": {"timestamp": $ts, "result": "skip", "reason": $r}}' > "$VERIFICATION_FILE"
+    fi
+    # DoD에도 SKIP 기록
+    if [[ -n "$PROGRESS_FILE" ]] && [[ -f "$PROGRESS_FILE" ]]; then
+      local has_dq
+      has_dq=$(jq '.dod | has("design_quality")' "$PROGRESS_FILE" 2>/dev/null || echo "false")
+      if [[ "$has_dq" == "true" ]]; then
+        jq_inplace "$PROGRESS_FILE" --arg ev "SKIP: $reason" '
+          .dod.design_quality.checked = true
+          | .dod.design_quality.evidence = $ev
+        '
+      fi
     fi
   }
 
@@ -1688,26 +1699,7 @@ cmd_design_polish_gate() {
 
   if [[ -z "$dp_root" ]]; then
     echo "[design-polish-gate] SKIP (design-polish plugin not installed)"
-    local ts
-    ts=$(timestamp)
-    if [[ -f "$VERIFICATION_FILE" ]]; then
-      jq_inplace "$VERIFICATION_FILE" --arg ts "$ts" \
-        '.designPolish = {"timestamp": $ts, "result": "skip", "reason": "plugin not installed"}'
-    else
-      jq -n --arg ts "$ts" \
-        '{"designPolish": {"timestamp": $ts, "result": "skip", "reason": "plugin not installed"}}' > "$VERIFICATION_FILE"
-    fi
-    # DoD에 SKIP 기록
-    if [[ -n "$PROGRESS_FILE" ]] && [[ -f "$PROGRESS_FILE" ]]; then
-      local has_dq
-      has_dq=$(jq '.dod | has("design_quality")' "$PROGRESS_FILE" 2>/dev/null || echo "false")
-      if [[ "$has_dq" == "true" ]]; then
-        jq_inplace "$PROGRESS_FILE" --arg ev "SKIP: design-polish not installed" '
-          .dod.design_quality.checked = true
-          | .dod.design_quality.evidence = $ev
-        '
-      fi
-    fi
+    _dp_record_skip "plugin not installed"
     echo "=== DESIGN POLISH GATE: SKIP ==="
     return 2
   fi
@@ -1824,7 +1816,9 @@ cmd_design_polish_gate() {
   # verification.json에 결과 기록
   local ts result
   ts=$(timestamp)
-  if [[ "$wcag_violations" -gt 0 ]]; then
+  if [[ "$capture_exit" -ne 0 ]]; then
+    result="soft_fail"
+  elif [[ "$wcag_violations" -gt 0 ]]; then
     result="soft_fail"
   else
     result="pass"

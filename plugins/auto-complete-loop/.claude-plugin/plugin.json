@@ -4,5 +4,12 @@
   "author": {
     "name": "user01"
   },
-  "commands": ["./commands"]
+  "commands": ["./commands"],
+  "skills": [
+    "./skills/pm-planning",
+    "./skills/doc-planning",
+    "./skills/implementation",
+    "./skills/code-review",
+    "./skills/verification"
+  ]
 }
