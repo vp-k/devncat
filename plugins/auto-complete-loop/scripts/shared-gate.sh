@@ -452,6 +452,17 @@ cmd_init_ralph() {
     die "init-ralph: progress_file must not contain newlines"
   fi
 
+  # 입력 검증: progress_file 경로 조작 방지
+  if [[ "$progress_file" == /* ]]; then
+    die "init-ralph: progress_file must be a relative path, got '$progress_file'"
+  fi
+  if [[ "$progress_file" == *..* ]]; then
+    die "init-ralph: progress_file must not contain '..', got '$progress_file'"
+  fi
+  if [[ ! "$progress_file" =~ ^\.claude-.*progress.*\.json$ ]]; then
+    die "init-ralph: progress_file must match pattern '.claude-*progress*.json', got '$progress_file'"
+  fi
+
   mkdir -p .claude
 
   local ralph_file=".claude/ralph-loop.local.md"
@@ -1421,7 +1432,7 @@ cmd_doc_consistency() {
   echo ""
   echo "[1] Data Model Terms"
   local models
-  models=$(grep -rh -oP '(?<=###?\s)([\w]+(?:\s?(?:Model|Schema|Table|Entity|Type|Interface)))' "$docs_dir"/*.md 2>/dev/null | sort -u || true)
+  models=$(grep -rh -oE '#{2,3}\s+[A-Za-z0-9_]+\s?(Model|Schema|Table|Entity|Type|Interface)' "$docs_dir"/*.md 2>/dev/null | sed 's/^#*\s*//' | sort -u || true)
   if [[ -n "$models" ]]; then
     while IFS= read -r model; do
       local count
@@ -1439,7 +1450,7 @@ cmd_doc_consistency() {
   echo ""
   echo "[2] API Endpoints"
   local endpoints
-  endpoints=$(grep -rhoP '(GET|POST|PUT|PATCH|DELETE)\s+/[\w/{}:-]+' "$docs_dir"/*.md 2>/dev/null | sort -u || true)
+  endpoints=$(grep -rhoE '(GET|POST|PUT|PATCH|DELETE)\s+/[A-Za-z0-9_/{}\:.-]+' "$docs_dir"/*.md 2>/dev/null | sort -u || true)
   if [[ -n "$endpoints" ]]; then
     local ep_count
     ep_count=$(echo "$endpoints" | wc -l)
@@ -1461,8 +1472,8 @@ cmd_doc_consistency() {
   echo ""
   echo "[3] Naming Convention"
   local camel snake
-  camel=$(grep -rhoP '\b[a-z]+[A-Z][a-zA-Z]*\b' "$docs_dir"/*.md 2>/dev/null | sort -u | head -10 || true)
-  snake=$(grep -rhoP '\b[a-z]+_[a-z_]+\b' "$docs_dir"/*.md 2>/dev/null | sort -u | head -10 || true)
+  camel=$(grep -rhoE '[a-z]+[A-Z][a-zA-Z]*' "$docs_dir"/*.md 2>/dev/null | sort -u | head -10 || true)
+  snake=$(grep -rhoE '[a-z]+_[a-z_]+' "$docs_dir"/*.md 2>/dev/null | sort -u | head -10 || true)
   if [[ -n "$camel" ]] && [[ -n "$snake" ]]; then
     echo "  Mixed conventions detected (may be intentional):"
     echo "  camelCase samples: $(echo "$camel" | head -3 | tr '\n' ', ')"
@@ -1475,11 +1486,11 @@ cmd_doc_consistency() {
   echo ""
   echo "[4] Cross-references"
   local refs
-  refs=$(grep -rhoP '(?:참조|see|ref):\s*[\w-]+\.md' "$docs_dir"/*.md 2>/dev/null || true)
+  refs=$(grep -rhoE '(참조|see|ref):\s*[A-Za-z0-9_-]+\.md' "$docs_dir"/*.md 2>/dev/null || true)
   if [[ -n "$refs" ]]; then
     while read -r ref; do
       local target
-      target=$(echo "$ref" | grep -oP '[\w-]+\.md')
+      target=$(echo "$ref" | grep -oE '[A-Za-z0-9_-]+\.md')
       if [[ ! -f "$docs_dir/$target" ]]; then
         echo "  BROKEN REF: $ref -> $docs_dir/$target not found"
         ((issues++)) || true
@@ -1507,7 +1518,7 @@ cmd_doc_code_check() {
   echo ""
   echo "[1] Route Matching"
   local doc_routes
-  doc_routes=$(grep -rhoP '(GET|POST|PUT|PATCH|DELETE)\s+/[\w/{}:-]+' "$docs_dir"/*.md SPEC.md 2>/dev/null | sort -u || true)
+  doc_routes=$(grep -rhoE '(GET|POST|PUT|PATCH|DELETE)\s+/[A-Za-z0-9_/{}\:.-]+' "$docs_dir"/*.md SPEC.md 2>/dev/null | sort -u || true)
   if [[ -n "$doc_routes" ]]; then
     while IFS= read -r route; do
       local method path
@@ -1530,7 +1541,7 @@ cmd_doc_code_check() {
   echo ""
   echo "[2] Model Matching"
   local doc_models
-  doc_models=$(grep -rhoP '(?:model|schema|table|interface|type)\s+(\w+)' "$docs_dir"/*.md SPEC.md 2>/dev/null | awk '{print $2}' | sort -u || true)
+  doc_models=$(grep -rhoE '(model|schema|table|interface|type)\s+[A-Za-z0-9_]+' "$docs_dir"/*.md SPEC.md 2>/dev/null | awk '{print $2}' | sort -u || true)
   if [[ -n "$doc_models" ]]; then
     while IFS= read -r model; do
       local found

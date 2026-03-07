@@ -221,8 +221,15 @@ async function captureReferences(refs) {
   const results = [];
 
   for (const { url, name } of refs) {
-    const filename = `reference-${name}.png`;
+    // Sanitize name to prevent path traversal
+    const safeName = name.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `reference-${safeName}.png`;
     const filepath = path.join(CONFIG.outputDir, filename);
+    // Verify resolved path stays within outputDir
+    if (!path.resolve(filepath).startsWith(path.resolve(CONFIG.outputDir))) {
+      console.error(`Skipping reference: resolved path escapes output directory`);
+      continue;
+    }
 
     try {
       console.log(`Capturing reference: ${url}`);
