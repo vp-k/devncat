@@ -35,9 +35,9 @@ fi
 FRONTMATTER=$(awk '/^---$/{i++; if(i==2) exit; next} i==1{print}' "$RALPH_STATE_FILE")
 
 # CR 문자 제거 (Windows CRLF 대응)
-ITERATION=$(echo "$FRONTMATTER" | grep "^iteration:" | sed 's/iteration: *//' | tr -d '\r')
-MAX_ITERATIONS=$(echo "$FRONTMATTER" | grep "^max_iterations:" | sed 's/max_iterations: *//' | tr -d '\r')
-COMPLETION_PROMISE=$(echo "$FRONTMATTER" | grep "^completion_promise:" | sed 's/completion_promise: *//' | sed 's/^"//' | sed 's/"$//' | tr -d '\r')
+ITERATION=$(echo "$FRONTMATTER" | grep "^iteration:" | sed 's/iteration: *//' | tr -d '\r' || true)
+MAX_ITERATIONS=$(echo "$FRONTMATTER" | grep "^max_iterations:" | sed 's/max_iterations: *//' | tr -d '\r' || true)
+COMPLETION_PROMISE=$(echo "$FRONTMATTER" | grep "^completion_promise:" | sed 's/completion_promise: *//' | sed 's/^"//' | sed 's/"$//' | tr -d '\r' || true)
 PROGRESS_FILE_FROM_FRONTMATTER=$(echo "$FRONTMATTER" | grep "^progress_file:" | sed 's/progress_file: *//' | sed 's/^"//' | sed 's/"$//' | tr -d '\r' || true)
 
 # 데이터 검증
@@ -97,6 +97,9 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
       if [[ -f "$PROGRESS_FILE_FROM_FRONTMATTER" ]]; then
         PROGRESS_FILES_TO_CHECK=("$PROGRESS_FILE_FROM_FRONTMATTER")
       else
+        # 지정된 파일이 없으면 검증 실패 (증거 없이 통과 방지)
+        VERIFICATION_PASSED="false"
+        FAILURE_REASONS="${FAILURE_REASONS}Specified progress file $PROGRESS_FILE_FROM_FRONTMATTER not found. "
         PROGRESS_FILES_TO_CHECK=()
       fi
     else
@@ -157,8 +160,11 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
       fi
     done
 
-    # 2. .claude-verification.json 검증 (존재하는 경우)
-    if [[ -f ".claude-verification.json" ]]; then
+    # 2. .claude-verification.json 검증 (필수)
+    if [[ ! -f ".claude-verification.json" ]]; then
+      VERIFICATION_PASSED="false"
+      FAILURE_REASONS="${FAILURE_REASONS}.claude-verification.json not found (quality gate evidence required). "
+    elif [[ -f ".claude-verification.json" ]]; then
       # exitCode 기반 게이트 (build/typeCheck/lint/test): exitCode == 0
       ALL_EXITCODES_OK=$(jq '
         [to_entries[] | select(.value | type == "object" and has("exitCode") and .exitCode != null) | .value.exitCode]
