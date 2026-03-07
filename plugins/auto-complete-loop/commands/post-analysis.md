@@ -58,10 +58,15 @@ docs/ 디렉토리에서 다음 파일들을 탐색:
 ### 4. Git Log
 
 ```bash
-git log --oneline -50
+# 커밋 존재 여부 확인 후 실행 (빈 저장소 대응)
+if git log --oneline -1 &>/dev/null; then
+  git log --oneline -50
+else
+  echo "커밋 데이터 없음"
+fi
 ```
 
-최근 50개 커밋 메시지를 수집합니다.
+최근 50개 커밋 메시지를 수집합니다. 커밋이 없으면 "커밋 데이터 없음"으로 기록합니다.
 
 ### 5. 프로젝트 메타데이터
 

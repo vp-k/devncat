@@ -439,6 +439,19 @@ cmd_init_ralph() {
   local progress_file="${2:?Usage: init-ralph <promise> <progress_file> [max_iter]}"
   local max_iter="${3:-0}"
 
+  # 입력 검증: max_iter는 반드시 정수
+  if ! [[ "$max_iter" =~ ^[0-9]+$ ]]; then
+    die "init-ralph: max_iter must be a non-negative integer, got '$max_iter'"
+  fi
+
+  # 입력 검증: promise/progress_file에 개행/제어문자 금지
+  if [[ "$promise" == *$'\n'* ]] || [[ "$promise" == *$'\r'* ]]; then
+    die "init-ralph: promise must not contain newlines"
+  fi
+  if [[ "$progress_file" == *$'\n'* ]] || [[ "$progress_file" == *$'\r'* ]]; then
+    die "init-ralph: progress_file must not contain newlines"
+  fi
+
   mkdir -p .claude
 
   local ralph_file=".claude/ralph-loop.local.md"
@@ -802,8 +815,14 @@ cmd_quality_gate() {
           | .dod.test_pass.evidence = (if $te == null then .dod.test_pass.evidence elif $te == 0 then "test pass " + $ev else "test fail " + $ev end)
         else . end)
         | (if has("consistencyChecks") then
-          .consistencyChecks.code_quality.checked = (($be == 0 or $be == null) and ($te == 0 or $te == null) and ($tye == 0 or $tye == null) and ($le == 0 or $le == null))
-          | .consistencyChecks.code_quality.evidence = $ev
+          # fail-closed: 모든 게이트가 null(스킵)이면 checked=false 유지
+          (if ($be == null and $te == null and $tye == null and $le == null) then
+            .consistencyChecks.code_quality.checked = false
+            | .consistencyChecks.code_quality.evidence = "all gates skipped " + $ev
+          else
+            .consistencyChecks.code_quality.checked = (($be == 0 or $be == null) and ($te == 0 or $te == null) and ($tye == 0 or $tye == null) and ($le == 0 or $le == null))
+            | .consistencyChecks.code_quality.evidence = $ev
+          end)
         else . end)
       '
     fi

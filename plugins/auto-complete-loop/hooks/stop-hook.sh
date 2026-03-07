@@ -83,7 +83,7 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
   # 먼저 <promise> 태그 존재 여부를 grep으로 확인 (perl 불필요)
   PROMISE_TEXT=""
   if [[ -n "$LAST_OUTPUT" ]] && echo "$LAST_OUTPUT" | grep -q '<promise>' 2>/dev/null; then
-    # sed로 promise 태그 내용 추출 (단일 라인 + 멀티라인 대응)
+    # sed로 promise 태그 내용 추출 (단일 라인 전용 — 규약상 항상 단일 라인)
     PROMISE_TEXT=$(echo "$LAST_OUTPUT" | sed -n 's/.*<promise>\(.*\)<\/promise>.*/\1/p' | head -1 | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
   fi
 
