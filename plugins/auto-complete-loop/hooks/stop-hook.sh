@@ -42,8 +42,11 @@ PROGRESS_FILE_FROM_FRONTMATTER=$(echo "$FRONTMATTER" | grep "^progress_file:" | 
 
 # 데이터 검증
 if ! [[ "$ITERATION" =~ ^[0-9]+$ ]] || ! [[ "$MAX_ITERATIONS" =~ ^[0-9]+$ ]]; then
-  echo "Ralph loop state file is corrupted. Removing and allowing stop."
-  rm -f "$RALPH_STATE_FILE" ".claude/ralph-loop-failure-history.local"
+  echo "Auto Complete Loop: WARNING - Ralph loop state file is corrupted (iteration=$ITERATION, max=$MAX_ITERATIONS)."
+  echo "Auto Complete Loop: State file preserved at $RALPH_STATE_FILE for manual inspection."
+  echo "Auto Complete Loop: To recover, fix or delete $RALPH_STATE_FILE manually."
+  # fail-closed: 손상 상태에서 루프 중단하되 파일 보존
+  rm -f ".claude/ralph-loop-failure-history.local"
   exit 0
 fi
 
@@ -108,6 +111,11 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
       for pf in .claude-*progress*.json; do
         [[ -f "$pf" ]] && PROGRESS_FILES_TO_CHECK+=("$pf")
       done
+      # fail-closed: glob 결과도 0개면 검증 실패 (progress 증거 없음)
+      if [[ ${#PROGRESS_FILES_TO_CHECK[@]} -eq 0 ]]; then
+        VERIFICATION_PASSED="false"
+        FAILURE_REASONS="${FAILURE_REASONS}No progress files found (frontmatter unset, glob empty). "
+      fi
     fi
     for PROGRESS_FILE in "${PROGRESS_FILES_TO_CHECK[@]}"; do
       VERIFIED_PROGRESS_FILES+=("$PROGRESS_FILE")
@@ -223,7 +231,16 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
 
       # 무한 루프 감지: 동일 실패 해시가 3회 연속 시 강제 탈출
       FAILURE_HISTORY_FILE=".claude/ralph-loop-failure-history.local"
-      CURRENT_FAILURE_HASH=$(echo "$FAILURE_REASONS" | md5sum | cut -d' ' -f1)
+      # 크로스 플랫폼 해시 (md5sum → md5 → sha256sum → cksum 폴백)
+      if command -v md5sum &>/dev/null; then
+        CURRENT_FAILURE_HASH=$(echo "$FAILURE_REASONS" | md5sum | cut -d' ' -f1)
+      elif command -v md5 &>/dev/null; then
+        CURRENT_FAILURE_HASH=$(echo "$FAILURE_REASONS" | md5)
+      elif command -v sha256sum &>/dev/null; then
+        CURRENT_FAILURE_HASH=$(echo "$FAILURE_REASONS" | sha256sum | cut -d' ' -f1)
+      else
+        CURRENT_FAILURE_HASH=$(echo "$FAILURE_REASONS" | cksum | cut -d' ' -f1)
+      fi
       REPEAT_COUNT=0
       if [[ -f "$FAILURE_HISTORY_FILE" ]]; then
         REPEAT_COUNT=$(grep -c "^${CURRENT_FAILURE_HASH}$" "$FAILURE_HISTORY_FILE" 2>/dev/null || echo "0")

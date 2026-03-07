@@ -837,13 +837,8 @@ cmd_secret_scan() {
   )
 
   # 루트 재귀 스캔 (exclude로 불필요 디렉토리 제외)
+  # .env* 파일도 루트 스캔에 포함됨 (.env.example만 exclude)
   local scan_dirs=(".")
-
-  # .env 파일 별도 스캔 (.env.example 제외)
-  local env_files=()
-  for f in .env .env.local .env.development .env.production .env.staging .env.test; do
-    [[ -f "$f" ]] && env_files+=("$f")
-  done
 
   # 제외 패턴 (불필요 디렉토리 + 바이너리/벤더 파일)
   local exclude_args=(
@@ -873,17 +868,8 @@ cmd_secret_scan() {
 
   for pattern in "${patterns[@]}"; do
     local matches=""
-    # 루트 재귀 스캔
+    # 루트 재귀 스캔 (.env* 포함, .env.example 제외)
     matches=$(grep -rn -E "$pattern" "${exclude_args[@]}" "${scan_dirs[@]}" 2>/dev/null || true)
-    # .env 파일 별도 스캔
-    if [[ ${#env_files[@]} -gt 0 ]]; then
-      local env_matches
-      env_matches=$(grep -n -E "$pattern" "${env_files[@]}" 2>/dev/null || true)
-      if [[ -n "$env_matches" ]]; then
-        matches="${matches:+$matches
-}$env_matches"
-      fi
-    fi
 
     if [[ -n "$matches" ]]; then
       local match_count
