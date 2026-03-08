@@ -7,3 +7,6 @@
 [submodule "plugins/design-polish"]
 	path = plugins/design-polish
 	url = https://github.com/vp-k/design-polish
+[submodule ".tmp_pm_skills"]
+	path = .tmp_pm_skills
+	url = https://github.com/phuryn/pm-skills.git
