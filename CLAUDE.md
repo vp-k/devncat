@@ -52,20 +52,45 @@ Each plugin follows the Claude Code plugin structure:
 - `plugins/design-polish/scripts/search.cjs` — BM25 search over design JSON data
 - `plugins/design-polish/scripts/capture.cjs` — Puppeteer screenshot + axe-core WCAG check
 
-## Working with Submodules
+## ⚠️ 커밋/푸시 규칙 — 반드시 읽고 따를 것
+
+> **`plugins/` 내 각 폴더는 독립 git 레포의 서브모듈입니다.**
+> 플러그인 코드를 수정하면 **해당 플러그인 폴더에서** 커밋/푸시해야 합니다.
+> 이 루트 레포에서 커밋하면 서브모듈 참조만 업데이트됩니다.
+
+### 플러그인 코드 수정 후 커밋/푸시 순서
 
 ```bash
-# After cloning, init submodules
-git submodule init && git submodule update
+# 1️⃣ 해당 플러그인 폴더로 이동하여 커밋/푸시
+cd plugins/auto-complete-loop    # (또는 design-polish, flutter-craft)
+git add <수정한 파일>
+git commit -m "메시지"
+git push
 
-# Update all submodules to latest
-git submodule foreach 'git checkout main && git pull'
-
-# Check submodule state
-git ls-tree HEAD plugins/    # Should show mode 160000
+# 2️⃣ 루트로 돌아와서 서브모듈 참조 업데이트
+cd <project-root>
+git add plugins/auto-complete-loop
+git commit -m "chore: update auto-complete-loop submodule ref"
+git push
 ```
 
-Each plugin has its own git repository. Changes to plugin code should be committed in the respective plugin repo first, then the submodule reference updated here.
+### ❌ 절대 하지 말 것
+
+- **루트에서 `plugins/` 내부 파일을 직접 `git add`하지 않는다** — 서브모듈이 깨짐
+- **코드 리뷰 등 자동화 수정 후 루트에서만 커밋하지 않는다** — 각 플러그인 레포에 먼저 푸시
+
+### 서브모듈 기본 명령
+
+```bash
+# 클론 후 서브모듈 초기화
+git submodule init && git submodule update
+
+# 모든 서브모듈 최신으로 업데이트
+git submodule foreach 'git checkout main && git pull'
+
+# 서브모듈 상태 확인 (mode 160000이어야 정상)
+git ls-tree HEAD plugins/
+```
 
 ## design-polish Setup
 

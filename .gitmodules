@@ -1,0 +1,9 @@
+[submodule "plugins/flutter-craft"]
+	path = plugins/flutter-craft
+	url = https://github.com/vp-k/flutter-craft
+[submodule "plugins/auto-complete-loop"]
+	path = plugins/auto-complete-loop
+	url = https://github.com/vp-k/auto-complete-loop
+[submodule "plugins/design-polish"]
+	path = plugins/design-polish
+	url = https://github.com/vp-k/design-polish
