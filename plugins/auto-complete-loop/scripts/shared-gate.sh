@@ -1754,6 +1754,10 @@ cmd_design_polish_gate() {
     return 2
   fi
 
+  # Stale 아티팩트 정리 (이전 실행 결과가 판정을 왜곡하지 않도록)
+  rm -f .design-polish/accessibility/wcag-report*.json 2>/dev/null || true
+  rm -f .design-polish/screenshots/current-*.png 2>/dev/null || true
+
   # 서버 시작 (smoke-check 로직 재사용)
   local port=3000
   local start_cmd=""
@@ -1870,6 +1874,19 @@ cmd_design_polish_gate() {
   else
     jq -n --arg ts "$ts" --argjson violations "$wcag_violations" --arg result "$result" --arg summary "$wcag_summary" \
       '{"designPolish": {"timestamp": $ts, "wcagViolations": $violations, "result": $result, "summary": $summary}}' > "$VERIFICATION_FILE"
+  fi
+
+  # DoD design_quality 갱신
+  if [[ -n "$PROGRESS_FILE" ]] && [[ -f "$PROGRESS_FILE" ]]; then
+    local has_dq
+    has_dq=$(jq '.dod | has("design_quality")' "$PROGRESS_FILE" 2>/dev/null || echo "false")
+    if [[ "$has_dq" == "true" ]]; then
+      local dq_checked="false"
+      [[ "$result" == "pass" ]] && dq_checked="true"
+      jq_inplace "$PROGRESS_FILE" \
+        --argjson checked "$dq_checked" --arg ev "design-polish-gate: $result ($wcag_summary)" \
+        '.dod.design_quality.checked = $checked | .dod.design_quality.evidence = $ev'
+    fi
   fi
 
   echo "=== DESIGN POLISH GATE: ${result^^} ==="

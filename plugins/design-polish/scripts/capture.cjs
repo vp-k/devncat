@@ -388,8 +388,13 @@ Output:
 }
 
 function printJsonResult(type, data) {
-  const results = data.results || data.screenshots || [];
-  const allSuccess = results.length > 0 && results.every(r => r.success !== false);
+  let allSuccess;
+  if (type === 'wcag' && data.reports) {
+    allSuccess = data.reports.length > 0;
+  } else {
+    const results = data.results || data.screenshots || [];
+    allSuccess = results.length > 0 && results.every(r => r.success !== false);
+  }
   const output = {
     success: allSuccess,
     type,
