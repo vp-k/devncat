@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Repository Is
 
-This is `flutter-craft` — a **Claude Code plugin marketplace** (codename: "bitlab") that bundles three plugins as git submodules under `plugins/`. It is NOT a Flutter application itself; it provides Claude Code skills/commands for Flutter development and other workflows.
+This is `devncat` — a **Claude Code plugin marketplace** that bundles three plugins as git submodules under `plugins/`. It is NOT a Flutter application itself; it provides Claude Code skills/commands for Flutter development and other workflows.
 
-The repo is also registered as a submodule in the parent marketplace at `vp-k/devncat`.
+GitHub: `vp-k/devncat`
 
 ## Repository Structure
 

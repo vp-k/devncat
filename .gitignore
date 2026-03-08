@@ -1,0 +1,5 @@
+# Claude Code temp files
+.claude-review-loop-progress.json
+.claude-review-progress.json
+.claude-verification.json
+code-review-result.md
