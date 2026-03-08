@@ -16,7 +16,6 @@ plugins/
 ├── flutter-craft/                 # Git submodule → vp-k/flutter-craft
 ├── design-polish/                 # Git submodule → vp-k/design-polish
 └── auto-complete-loop/            # Git submodule → vp-k/auto-complete-loop
-.tmp_pm_skills/                    # Vendored PM skills (pm-skills marketplace by Paweł Huryn)
 ```
 
 ## The Three Plugins
