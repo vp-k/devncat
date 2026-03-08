@@ -1053,6 +1053,15 @@ cmd_artifact_check() {
 cmd_smoke_check() {
   local port="${1:-3000}"
   local timeout="${2:-15}"
+
+  # 입력 검증: port/timeout은 반드시 정수
+  if ! [[ "$port" =~ ^[0-9]+$ ]]; then
+    die "smoke-check: port must be a positive integer, got '$port'"
+  fi
+  if ! [[ "$timeout" =~ ^[0-9]+$ ]]; then
+    die "smoke-check: timeout must be a positive integer, got '$timeout'"
+  fi
+
   echo "=== Smoke Check (port: $port, timeout: ${timeout}s) ==="
   require_jq
 
