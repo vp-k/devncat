@@ -1,3 +1,29 @@
 {
-  "build": { "exitCode": 0, "command": "bash -n stop-hook.sh && bash -n shared-gate.sh", "timestamp": "2026-03-07T20:30:00Z" }
+  "timestamp": "2026-03-08T00:10:41Z",
+  "environment": {
+    "node": "v22.20.0",
+    "npm": "11.7.0",
+    "os": "MINGW64_NT-10.0-26200",
+    "cwd": "C:/Users/user01/Desktop/code/claude-code/flutter-craft"
+  },
+  "build": {
+    "command": null,
+    "exitCode": null,
+    "summary": "skipped"
+  },
+  "typeCheck": {
+    "command": null,
+    "exitCode": null,
+    "summary": "skipped"
+  },
+  "lint": {
+    "command": null,
+    "exitCode": null,
+    "summary": "skipped"
+  },
+  "test": {
+    "command": null,
+    "exitCode": null,
+    "summary": "skipped"
+  }
 }
