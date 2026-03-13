@@ -10,3 +10,6 @@
 [submodule ".tmp_pm_skills"]
 	path = .tmp_pm_skills
 	url = https://github.com/phuryn/pm-skills.git
+[submodule "plugins/godot-craft"]
+	path = plugins/godot-craft
+	url = https://github.com/vp-k/godot-craft.git

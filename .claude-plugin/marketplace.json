@@ -19,6 +19,11 @@
       "name": "auto-complete-loop",
       "source": "./plugins/auto-complete-loop",
       "description": "AI 코딩 완주 프레임워크 - Ralph Loop + DoD/SPEC/TDD 검증"
+    },
+    {
+      "name": "godot-craft",
+      "source": "./plugins/godot-craft",
+      "description": "텍스트 한 줄로 플레이 가능한 Godot 4 게임을 자율 생성하는 6-Phase 파이프라인"
     }
   ]
 }
