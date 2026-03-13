@@ -4,6 +4,7 @@ import os
 import base64
 import json
 import urllib.request
+import urllib.error
 from . import ImageProvider
 
 
@@ -40,8 +41,11 @@ class GeminiImageProvider(ImageProvider):
             method="POST"
         )
 
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            result = json.loads(resp.read().decode("utf-8"))
+        try:
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                result = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            raise RuntimeError(f"Gemini API error {e.code}: {e.read().decode('utf-8', errors='replace')[:200]}") from e
 
         # 응답에서 이미지 추출
         for candidate in result.get("candidates", []):

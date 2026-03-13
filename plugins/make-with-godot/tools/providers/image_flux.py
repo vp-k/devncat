@@ -4,6 +4,7 @@ import os
 import json
 import time
 import urllib.request
+import urllib.error
 from . import ImageProvider
 
 
@@ -42,8 +43,11 @@ class FluxImageProvider(ImageProvider):
             method="POST"
         )
 
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            result = json.loads(resp.read().decode("utf-8"))
+        try:
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                result = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            raise RuntimeError(f"Flux API error {e.code}: {e.read().decode('utf-8', errors='replace')[:200]}") from e
 
         # queue 방식이면 request_id로 폴링
         if "request_id" in result:
