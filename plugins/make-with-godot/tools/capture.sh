@@ -57,6 +57,8 @@ cmd_screenshot() {
     esac
   done
 
+  [[ "$wait_time" =~ ^[0-9]+(\.[0-9]+)?$ ]] || die "--wait must be a number, got: $wait_time"
+
   require_cmd godot
   require_cmd Xvfb
 
@@ -116,6 +118,8 @@ cmd_video() {
       *) shift ;;
     esac
   done
+
+  [[ "$duration" =~ ^[0-9]+$ ]] || die "--duration must be an integer, got: $duration"
 
   require_cmd godot
   require_cmd Xvfb
