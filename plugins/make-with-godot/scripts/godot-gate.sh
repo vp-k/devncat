@@ -281,7 +281,7 @@ cmd_build_order() {
   # 의존성이 없는 씬을 먼저, 의존성이 있는 씬을 나중에
   grep -oP '\w+\.tscn' "$structure_md" 2>/dev/null | sort -u | while read -r scene; do
     local deps
-    deps=$(grep "$scene" "$structure_md" | grep -oP 'depends?:\s*\K[^)]+' 2>/dev/null || true)
+    deps=$(grep -F "$scene" "$structure_md" | grep -oP 'depends?:\s*\K[^)]+' 2>/dev/null || true)
     if [[ -z "$deps" ]]; then
       echo "L0: $scene (no deps)"
     else
@@ -302,6 +302,7 @@ cmd_compile_check() {
 
   local stderr_file
   stderr_file=$(mktemp)
+  trap 'rm -f "$stderr_file"' RETURN
 
   local exit_code=0
   # --headless --quit로 프로젝트를 로드만 하고 종료
@@ -332,8 +333,6 @@ cmd_compile_check() {
       "passed": ($exitCode == 0 and $errorCount == 0)
     }'
 
-  rm -f "$stderr_file"
-
   if [[ $exit_code -ne 0 ]] || [[ $error_count -gt 0 ]]; then
     return 1
   fi
@@ -358,8 +357,9 @@ cmd_plan_gate() {
     if ! grep -q '## Task\|## 태스크\|### T[0-9]' PLAN.md; then
       echo "FAIL: No task sections found in PLAN.md"
       errors=$((errors + 1))
+    else
+      echo "OK: PLAN.md exists with task sections"
     fi
-    echo "OK: PLAN.md exists with task sections"
   fi
 
   # STRUCTURE.md 존재 확인
@@ -789,13 +789,17 @@ cmd_collision_setup() {
   fi
 
   # project.godot의 [layer_names] 섹션에 추가
+  local resolved_config
+  resolved_config=$(printf '%b' "$layer_config")
+
   if grep -q '\[layer_names\]' "$project_godot"; then
-    # 기존 섹션에 추가
-    sed -i "/\[layer_names\]/a\\
-$(echo -e "$layer_config")" "$project_godot"
+    # 기존 섹션에 추가 — sed -i 이식성 문제 방지를 위해 임시 파일 사용
+    local tmp_godot
+    tmp_godot=$(mktemp)
+    awk -v cfg="$resolved_config" '/\[layer_names\]/{print; print cfg; next}1' "$project_godot" > "$tmp_godot" && mv "$tmp_godot" "$project_godot"
   else
     # 섹션 추가
-    echo -e "\n[layer_names]\n${layer_config}" >> "$project_godot"
+    printf '\n[layer_names]\n%s\n' "$resolved_config" >> "$project_godot"
   fi
 
   echo "OK: Collision layers configured"
@@ -985,7 +989,7 @@ cmd_record_error() {
       --msg) msg="$2"; shift 2 ;;
       --level) level="$2"; shift 2 ;;
       --action) action="$2"; shift 2 ;;
-      *) shift ;;
+      *) echo "WARNING: record-error: unknown option '$1'" >&2; shift ;;
     esac
   done
 
@@ -1018,14 +1022,14 @@ cmd_record_error() {
     jq_inplace "$PROGRESS_FILE" --argjson nl "$next_level" '.escalation.currentLevel = $nl'
 
     case $next_level in
-      2) echo "ESCALATE: L2 reached → codex analysis needed"; exit 2 ;;
-      5) echo "ESCALATE: L5 reached → user intervention required"; exit 3 ;;
-      *) echo "ESCALATE: L$level_num budget exhausted → moving to L$next_level"; exit 1 ;;
+      2) echo "ESCALATE: L2 reached → codex analysis needed"; return 2 ;;
+      5) echo "ESCALATE: L5 reached → user intervention required"; return 3 ;;
+      *) echo "ESCALATE: L$level_num budget exhausted → moving to L$next_level"; return 1 ;;
     esac
   fi
 
   echo "OK: Error recorded (L$level_num, attempt $attempts/$budget)"
-  exit 0
+  return 0
 }
 
 # ─── 메인 디스패처 ───
