@@ -13,3 +13,6 @@
 [submodule "plugins/godot-craft"]
 	path = plugins/godot-craft
 	url = https://github.com/vp-k/godot-craft.git
+[submodule "plugins/multi-ai-roundtable"]
+	path = plugins/multi-ai-roundtable
+	url = https://github.com/vp-k/multi-ai-roundtable

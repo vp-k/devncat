@@ -15,10 +15,11 @@ GitHub: `vp-k/devncat`
 plugins/
 ├── flutter-craft/                 # Git submodule → vp-k/flutter-craft
 ├── design-polish/                 # Git submodule → vp-k/design-polish
-└── auto-complete-loop/            # Git submodule → vp-k/auto-complete-loop
+├── auto-complete-loop/            # Git submodule → vp-k/auto-complete-loop
+└── multi-ai-roundtable/           # Git submodule → vp-k/multi-ai-roundtable
 ```
 
-## The Three Plugins
+## Plugins
 
 ### flutter-craft (v1.1.2)
 Flutter Feature-Driven Development with Clean Architecture. Provides a full workflow: brainstorm → plan → execute → verify → finish. Enforces Clean Architecture layer order (domain → data → presentation) and priority-based testing (Repository → State → Widget).
@@ -34,6 +35,11 @@ Key commands: `/design-polish`, `/design-renewal`
 AI coding completion framework with Ralph Loop + DoD/SPEC/TDD verification. Orchestrates full project lifecycle: PM Planning → Doc Planning → Implementation → Code Review → Verification.
 
 Key command: `/full-auto <requirements>` (runs all phases), plus standalone commands like `/code-review-loop`, `/plan-docs-auto`, `/implement-docs-auto`
+
+### multi-ai-roundtable (v1.0.0)
+3자 AI 토론 워크플로우. Claude Code(중재자) + codex-cli(비판적 분석) + gemini-cli(창의적 제안)가 독립적으로 분석 후, Claude가 교차 검증하여 합의 로드맵을 도출하고 병렬 에이전트로 실행.
+
+Key command: `/roundtable <프로젝트 경로 또는 설명>`
 
 ## Plugin Architecture
 

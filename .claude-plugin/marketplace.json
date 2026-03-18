@@ -24,6 +24,11 @@
       "name": "godot-craft",
       "source": "./plugins/godot-craft",
       "description": "텍스트 한 줄로 플레이 가능한 Godot 4 게임을 자율 생성하는 6-Phase 파이프라인"
+    },
+    {
+      "name": "multi-ai-roundtable",
+      "source": "./plugins/multi-ai-roundtable",
+      "description": "3자 AI 토론(Claude + codex-cli + gemini-cli) → 합의 로드맵 → 병렬 에이전트 실행"
     }
   ]
 }
