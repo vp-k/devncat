@@ -36,10 +36,10 @@ AI coding completion framework with Ralph Loop + DoD/SPEC/TDD verification. Orch
 
 Key command: `/full-auto <requirements>` (runs all phases), plus standalone commands like `/code-review-loop`, `/plan-docs-auto`, `/implement-docs-auto`
 
-### multi-ai-roundtable (v1.0.0)
-3자 AI 토론 워크플로우. Claude Code(중재자) + codex-cli(비판적 분석) + gemini-cli(창의적 제안)가 독립적으로 분석 후, Claude가 교차 검증하여 합의 로드맵을 도출하고 병렬 에이전트로 실행.
+### multi-ai-roundtable (v1.1.0)
+다자 AI 토론 워크플로우. 실제 codex / gemini CLI 바이너리를 Bash로 직접 호출(기본 모드: `codex` only, `--both`로 둘 다, `--gemini-only`로 gemini만)하여 다른 모델의 관점을 수집한 뒤, Claude가 중재·합성하여 합의 로드맵을 도출하고 병렬 에이전트로 실행. quota 감지 시 즉시 Claude 폴백.
 
-Key command: `/roundtable <프로젝트 경로 또는 설명>`
+Key command: `/roundtable [--both | --gemini-only] <프로젝트 경로 또는 설명>`
 
 ## Plugin Architecture
 
@@ -79,10 +79,46 @@ git commit -m "chore: update auto-complete-loop submodule ref"
 git push
 ```
 
+### ✅ 버전 업데이트 규칙 — 커밋 전 반드시 확인
+
+플러그인 동작/기능에 변화가 있는 커밋이면 **푸시 전에 반드시 버전을 올린다.** 잊으면 사용자가 받는 마켓플레이스 캐시가 갱신되지 않거나, 변경 사항을 추적할 수 없게 된다.
+
+**무엇을 바꾸나:**
+
+1. `plugins/<플러그인>/.claude-plugin/plugin.json`의 `version` 필드 (필수)
+2. 해당 플러그인의 메인 `SKILL.md` frontmatter `version` 필드 (있는 경우)
+3. 루트 `CLAUDE.md`의 "Plugins" 섹션에 적힌 버전 표시 (예: `### multi-ai-roundtable (v1.1.0)`)
+
+**SemVer 가이드 (`MAJOR.MINOR.PATCH`):**
+
+| 범위 | 예시 |
+|------|------|
+| **PATCH** (예: 1.1.0 → 1.1.1) | 오탈자, 문구 수정, 작은 버그픽스, 동작 변화 없음 |
+| **MINOR** (예: 1.0.0 → 1.1.0) | 새 명령/플래그 추가, 기존 동작 보강(하위호환), Phase 흐름 재구성 |
+| **MAJOR** (예: 1.x → 2.0) | 기존 명령/인자 호환성 깨는 변경, 동작 패러다임 변경 |
+
+**커밋 흐름에서의 위치:**
+
+```
+플러그인 폴더(서브모듈)에서
+  └─ ① 코드 수정
+  └─ ② plugin.json / SKILL.md frontmatter version 변경 ← 잊지 마
+  └─ ③ git add → commit → push
+
+루트로 돌아와서
+  └─ ④ CLAUDE.md Plugins 섹션의 버전 표기 갱신 (필요 시)
+  └─ ⑤ git add plugins/<플러그인> [+ CLAUDE.md] → commit → push
+```
+
+루트 커밋 메시지에는 새 버전을 명시한다 (예: `chore: update multi-ai-roundtable submodule ref (v1.1.0 — deterministic CLI invocation)`).
+
+순수 문서 정정(README 오탈자 등)으로 동작이 안 바뀐다면 PATCH도 생략 가능하지만, 의심되면 **올린다**.
+
 ### ❌ 절대 하지 말 것
 
 - **루트에서 `plugins/` 내부 파일을 직접 `git add`하지 않는다** — 서브모듈이 깨짐
 - **코드 리뷰 등 자동화 수정 후 루트에서만 커밋하지 않는다** — 각 플러그인 레포에 먼저 푸시
+- **버전 안 올리고 동작 변경을 푸시하지 않는다** — 위 "버전 업데이트 규칙" 참조
 
 ### 서브모듈 기본 명령
 
