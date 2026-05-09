@@ -31,10 +31,10 @@ Design polishing with WCAG accessibility checks. Has a built-in BM25 search engi
 
 Key commands: `/design-polish`, `/design-renewal`
 
-### auto-complete-loop (v2.2.3)
+### auto-complete-loop (v2.3.0)
 AI coding completion framework with Ralph Loop + DoD/SPEC/TDD verification. Orchestrates full project lifecycle: PM Planning → Doc Planning → Implementation → Code Review → Verification.
 
-Key command: `/full-auto <requirements>` (runs all phases), plus standalone commands like `/code-review-loop`, `/plan-docs-auto`, `/implement-docs-auto`
+Key command: `/full-auto <requirements>` (runs all phases), plus standalone commands like `/plan-docs-full` (PM + Doc planning only with 4 strict gates), `/code-review-loop`, `/plan-docs-auto`, `/implement-docs-auto`
 
 ### multi-ai-roundtable (v1.1.0)
 다자 AI 토론 워크플로우. 실제 codex / gemini CLI 바이너리를 Bash로 직접 호출(기본 모드: `codex` only, `--both`로 둘 다, `--gemini-only`로 gemini만)하여 다른 모델의 관점을 수집한 뒤, Claude가 중재·합성하여 합의 로드맵을 도출하고 병렬 에이전트로 실행. quota 감지 시 즉시 Claude 폴백.
