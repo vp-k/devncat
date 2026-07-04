@@ -28,7 +28,7 @@
     {
       "name": "multi-ai-roundtable",
       "source": "./plugins/multi-ai-roundtable",
-      "description": "3자 AI 토론(Claude + codex-cli + gemini-cli) → 합의 로드맵 → 병렬 에이전트 실행"
+      "description": "AI 토론(codex-cli 비판 + Claude 대안) → 합의 로드맵 → 병렬 에이전트 실행"
     }
   ]
 }
