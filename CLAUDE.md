@@ -36,10 +36,10 @@ AI coding completion framework with Ralph Loop + DoD/SPEC/TDD verification. Orch
 
 Key command: `/full-auto <requirements>` (runs all phases), plus standalone commands like `/plan-docs-full` (PM + Doc planning only with 4 strict gates), `/code-review-loop`, `/plan-docs-auto`, `/implement-docs-auto`
 
-### multi-ai-roundtable (v1.1.0)
-다자 AI 토론 워크플로우. 실제 codex / gemini CLI 바이너리를 Bash로 직접 호출(기본 모드: `codex` only, `--both`로 둘 다, `--gemini-only`로 gemini만)하여 다른 모델의 관점을 수집한 뒤, Claude가 중재·합성하여 합의 로드맵을 도출하고 병렬 에이전트로 실행. quota 감지 시 즉시 Claude 폴백.
+### multi-ai-roundtable (v2.0.0)
+AI 토론 워크플로우. 실제 codex 바이너리를 Bash로 직접 호출해 비판적 관점을 수집하고, 여기에 Claude의 창의적 대안 관점을 더한 뒤, Claude가 중재·합성하여 합의 로드맵을 도출하고 병렬 에이전트로 실행. quota 감지 시 즉시 Claude 폴백. (종료된 gemini CLI를 두 번째 외부 CLI에서 제거 — v2.0.0. 이제 외부 CLI는 codex 하나)
 
-Key command: `/roundtable [--both | --gemini-only] <프로젝트 경로 또는 설명>`
+Key command: `/roundtable <프로젝트 경로 또는 설명>`
 
 ## Plugin Architecture
 
