@@ -29,6 +29,11 @@
       "name": "multi-ai-roundtable",
       "source": "./plugins/multi-ai-roundtable",
       "description": "AI 토론(codex-cli 비판 + Claude 대안) → 합의 로드맵 → 병렬 에이전트 실행"
+    },
+    {
+      "name": "product-discovery",
+      "source": "./plugins/product-discovery",
+      "description": "제품 발견 도구 - 사용자 인터뷰 준비/분석 (The Mom Test) + 출시 후 분석 (지표/회고/런치/경쟁)"
     }
   ]
 }

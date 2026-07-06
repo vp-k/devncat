@@ -4,19 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Repository Is
 
-This is `devncat` — a **Claude Code plugin marketplace** that bundles three plugins as git submodules under `plugins/`. It is NOT a Flutter application itself; it provides Claude Code skills/commands for Flutter development and other workflows.
+This is `devncat` — a **Claude Code plugin marketplace** that bundles six plugins as git submodules under `plugins/`. It is NOT a Flutter application itself; it provides Claude Code skills/commands for Flutter development and other workflows.
 
 GitHub: `vp-k/devncat`
 
 ## Repository Structure
 
 ```
-.claude-plugin/marketplace.json   # Marketplace manifest (lists 3 plugins)
+.claude-plugin/marketplace.json   # Marketplace manifest (lists 6 plugins)
 plugins/
 ├── flutter-craft/                 # Git submodule → vp-k/flutter-craft
 ├── design-polish/                 # Git submodule → vp-k/design-polish
 ├── auto-complete-loop/            # Git submodule → vp-k/auto-complete-loop
-└── multi-ai-roundtable/           # Git submodule → vp-k/multi-ai-roundtable
+├── godot-craft/                   # Git submodule → vp-k/godot-craft
+├── multi-ai-roundtable/           # Git submodule → vp-k/multi-ai-roundtable
+└── product-discovery/             # Git submodule → vp-k/product-discovery
 ```
 
 ## Plugins
@@ -31,12 +33,20 @@ Design polishing with WCAG accessibility checks. Has a built-in BM25 search engi
 
 Key commands: `/design-polish`, `/design-renewal`
 
-### auto-complete-loop (v3.1.0)
+### auto-complete-loop (v4.0.0)
 AI coding completion framework with Ralph Loop + DoD/SPEC/TDD verification. Orchestrates full project lifecycle: PM Planning → Doc Planning → Implementation → Code Review → Verification.
 
 Key command: `/full-auto <requirements>` (runs all phases), plus standalone commands like `/plan-docs-full` (PM + Doc planning only with 4 strict gates), `/code-review-loop`, `/plan-docs-auto`, `/implement-docs-auto`
 
-리뷰 모드: `solo`(Claude 단독) / `codex`(기본, Claude+codex 2자) / `dual`(codex 2회 분할 독립 리뷰+Claude, 3자) / `teams`. v3.0.0에서 종료된 gemini CLI를 제거하고 구 `gemini` 모드(`-gemini` 명령)를 `dual`(codex 2차 호출)로 교체.
+리뷰 모드: `solo`(Claude 서브에이전트 3개 병렬, 폴백 순차) / `codex`(기본, Claude+codex 2자) / `dual`(codex 2회 분할 병렬 독립 리뷰+Claude, 3자) / `teams`. v3.0.0에서 종료된 gemini CLI를 `dual`로 교체, v3.1.0에서 리뷰 프롬프트 단일화·quality-gate 캐시·템플릿 lazy-load·stop-hook 하드닝, v4.0.0에서 제품 발견 도구를 product-discovery 플러그인으로 분리(BREAKING: `/interview-*`, `/post-analysis` 제거) + solo/dual 병렬화 + admin.sh 모듈 분할.
+
+### godot-craft (v1.2.0)
+텍스트 한 줄로 플레이 가능한 Godot 4 게임을 자율 생성하는 6-Phase 파이프라인 (Concept → Scaffold → Implement → Test → Review → Verify). 이미지 에셋 생성(Gemini API/Flux/Worker)과 Gemini Flash 기반 Visual QA 포함.
+
+### product-discovery (v1.0.0)
+제품 발견 도구. 사용자 인터뷰 준비/분석 (The Mom Test) + 출시 후 분석 (지표 추천/회고/런치 분석/경쟁 구도). auto-complete-loop v4.0.0에서 분리됨.
+
+Key commands: `/interview-prep <기획문서>`, `/interview-summary <녹취>`, `/post-analysis [--only metrics|retro|launch|competitive]`
 
 ### multi-ai-roundtable (v2.0.0)
 AI 토론 워크플로우. 실제 codex 바이너리를 Bash로 직접 호출해 비판적 관점을 수집하고, 여기에 Claude의 창의적 대안 관점을 더한 뒤, Claude가 중재·합성하여 합의 로드맵을 도출하고 병렬 에이전트로 실행. quota 감지 시 즉시 Claude 폴백. (종료된 gemini CLI를 두 번째 외부 CLI에서 제거 — v2.0.0. 이제 외부 CLI는 codex 하나)
