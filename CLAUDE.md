@@ -33,7 +33,7 @@ Design polishing with WCAG accessibility checks. Has a built-in BM25 search engi
 
 Key commands: `/design-polish`, `/design-renewal`
 
-### auto-complete-loop (v4.4.1)
+### auto-complete-loop (v4.5.0)
 AI coding completion framework with Ralph Loop + DoD/SPEC/TDD verification. Orchestrates full project lifecycle: PM Planning → Doc Planning → Implementation → Code Review → Verification.
 
 Key command: `/full-auto <requirements>` (runs all phases), plus standalone commands like `/plan-docs-full` (PM + Doc planning only with 4 strict gates), `/code-review-loop`, `/plan-docs-auto`, `/implement-docs-auto`
