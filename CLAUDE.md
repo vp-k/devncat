@@ -23,7 +23,7 @@ plugins/
 
 ## Plugins
 
-### flutter-craft (v1.2.1)
+### flutter-craft (v1.3.0)
 Flutter Feature-Driven Development with Clean Architecture. Provides a full workflow: brainstorm → plan → execute → verify → finish. Enforces Clean Architecture layer order (domain → data → presentation) and priority-based testing (Repository → State → Widget).
 
 Key commands: `/brainstorm`, `/plan`, `/execute`
