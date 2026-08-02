@@ -8,48 +8,48 @@
     {
       "name": "flutter-craft",
       "source": {
-        "source": "github",
-        "repo": "vp-k/flutter-craft"
+        "source": "url",
+        "url": "https://github.com/vp-k/flutter-craft.git"
       },
       "description": "Flutter Feature-Driven Development with Clean Architecture"
     },
     {
       "name": "design-polish",
       "source": {
-        "source": "github",
-        "repo": "vp-k/design-polish"
+        "source": "url",
+        "url": "https://github.com/vp-k/design-polish.git"
       },
       "description": "Design polishing with WCAG accessibility checks"
     },
     {
       "name": "auto-complete-loop",
       "source": {
-        "source": "github",
-        "repo": "vp-k/auto-complete-loop"
+        "source": "url",
+        "url": "https://github.com/vp-k/auto-complete-loop.git"
       },
       "description": "AI 코딩 완주 프레임워크 - Ralph Loop + DoD/SPEC/TDD 검증"
     },
     {
       "name": "godot-craft",
       "source": {
-        "source": "github",
-        "repo": "vp-k/godot-craft"
+        "source": "url",
+        "url": "https://github.com/vp-k/godot-craft.git"
       },
       "description": "텍스트 한 줄로 플레이 가능한 Godot 4 게임을 자율 생성하는 6-Phase 파이프라인"
     },
     {
       "name": "multi-ai-roundtable",
       "source": {
-        "source": "github",
-        "repo": "vp-k/multi-ai-roundtable"
+        "source": "url",
+        "url": "https://github.com/vp-k/multi-ai-roundtable.git"
       },
       "description": "AI 토론(codex-cli 비판 + Claude 대안) → 합의 로드맵 → 병렬 에이전트 실행"
     },
     {
       "name": "product-discovery",
       "source": {
-        "source": "github",
-        "repo": "vp-k/product-discovery"
+        "source": "url",
+        "url": "https://github.com/vp-k/product-discovery.git"
       },
       "description": "제품 발견 도구 - 사용자 인터뷰 준비/분석 (The Mom Test) + 출시 후 분석 (지표/회고/런치/경쟁)"
     }
