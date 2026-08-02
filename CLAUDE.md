@@ -74,6 +74,12 @@ Each plugin follows the Claude Code plugin structure:
 > **`plugins/` 내 각 폴더는 독립 git 레포의 서브모듈입니다.**
 > 플러그인 코드를 수정하면 **해당 플러그인 폴더에서** 커밋/푸시해야 합니다.
 > 이 루트 레포에서 커밋하면 서브모듈 참조만 업데이트됩니다.
+>
+> **마켓플레이스 배포 경로**: `.claude-plugin/marketplace.json`의 각 플러그인 `source`는
+> **GitHub 직접 참조**(`{"source": "github", "repo": "vp-k/<플러그인>"}`)다 — `/plugin marketplace add`가
+> plain clone만 수행해 서브모듈이 초기화되지 않으므로 상대 경로(`./plugins/...`)는 원격 사용자에게
+> 빈 디렉토리가 된다. 따라서 **플러그인 레포에 푸시하면 사용자는 marketplace update로 바로 받는다**
+> (루트 서브모듈 ref 갱신은 이 모노레포 체크아웃의 정합용으로 계속 유지).
 
 ### 플러그인 코드 수정 후 커밋/푸시 순서
 
