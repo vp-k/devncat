@@ -28,8 +28,8 @@ Flutter Feature-Driven Development with Clean Architecture. Provides a full work
 
 Key commands: `/brainstorm`, `/plan`, `/execute`
 
-### design-polish (v2.1.0)
-Design polishing with WCAG accessibility checks. Has a built-in BM25 search engine over design knowledge (66 styles, 96 palettes, 57 typography pairings). Requires `npm install` for puppeteer + axe-core.
+### design-polish (v2.2.0)
+Design polishing with WCAG accessibility checks. Has a built-in BM25 search engine over design knowledge (66 styles, 96 palettes, 57 typography pairings). Requires `npm install` for puppeteer + axe-core. v2.2.0에서 측정 엔진 확장 — Health Score의 styleFit·performance가 고정 상수에서 **실측값**으로 전환(렌더 DOM 일관성 계측 + navigation/paint/resource timing), 계측(`page.evaluate`)과 순수 스코어러(`scoreConsistency`/`scorePerformance`) 분리로 결정적·단위테스트 가능(`npm test`), 모바일 axe 패스 + 터치 타겟(44px) 자동 감사, `--apply` 후 **close-the-loop 검증**(재캡처→before/after diff→회귀 시 롤백, renewal은 `design-renewal-backup` 브랜치 선생성), append-only `health-history.jsonl`(회귀·정체 감지), 라우트 자동 발견.
 
 Key commands: `/design-polish`, `/design-renewal`
 
