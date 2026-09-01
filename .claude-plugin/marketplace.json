@@ -52,6 +52,14 @@
         "url": "https://github.com/vp-k/product-discovery.git"
       },
       "description": "제품 발견 도구 - 사용자 인터뷰 준비/분석 (The Mom Test) + 출시 후 분석 (지표/회고/런치/경쟁)"
+    },
+    {
+      "name": "open-reach",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/vp-k/open-reach.git"
+      },
+      "description": "공개 소스가 표준 fetch로 막혔을 때 정책상 허용되는 공개 접근 경로를 시도하고 결과·한계·근거를 재현 가능하게 남긴다 (로그인월·페이월 미돌파, SSRF fail-closed)"
     }
   ]
 }

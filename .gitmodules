@@ -16,3 +16,6 @@
 [submodule "plugins/product-discovery"]
 	path = plugins/product-discovery
 	url = https://github.com/vp-k/product-discovery
+[submodule "plugins/open-reach"]
+	path = plugins/open-reach
+	url = https://github.com/vp-k/open-reach.git

@@ -4,21 +4,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Repository Is
 
-This is `devncat` — a **Claude Code plugin marketplace** that bundles six plugins as git submodules under `plugins/`. It is NOT a Flutter application itself; it provides Claude Code skills/commands for Flutter development and other workflows.
+This is `devncat` — a **Claude Code plugin marketplace** that bundles seven plugins as git submodules under `plugins/`. It is NOT a Flutter application itself; it provides Claude Code skills/commands for Flutter development and other workflows.
 
 GitHub: `vp-k/devncat`
 
 ## Repository Structure
 
 ```
-.claude-plugin/marketplace.json   # Marketplace manifest (lists 6 plugins)
+.claude-plugin/marketplace.json   # Marketplace manifest (lists 7 plugins)
 plugins/
 ├── flutter-craft/                 # Git submodule → vp-k/flutter-craft
 ├── design-polish/                 # Git submodule → vp-k/design-polish
 ├── auto-complete-loop/            # Git submodule → vp-k/auto-complete-loop
 ├── godot-craft/                   # Git submodule → vp-k/godot-craft
 ├── multi-ai-roundtable/           # Git submodule → vp-k/multi-ai-roundtable
-└── product-discovery/             # Git submodule → vp-k/product-discovery
+├── product-discovery/             # Git submodule → vp-k/product-discovery
+└── open-reach/                    # Git submodule → vp-k/open-reach
 ```
 
 ## Plugins
@@ -52,6 +53,11 @@ Key commands: `/interview-prep <기획문서>`, `/interview-summary <녹취>`, `
 AI 토론 워크플로우. 실제 codex 바이너리를 Bash로 직접 호출해 비판적 관점을 수집하고, 여기에 Claude의 창의적 대안 관점을 더한 뒤, Claude가 중재·합성하여 합의 로드맵을 도출하고 병렬 에이전트로 실행. quota 감지 시 즉시 Claude 폴백. (종료된 gemini CLI를 두 번째 외부 CLI에서 제거 — v2.0.0. 이제 외부 CLI는 codex 하나)
 
 Key command: `/roundtable <프로젝트 경로 또는 설명>`
+
+### open-reach (v1.0.0)
+리서치 중 공개 소스가 표준 fetch(WebFetch/curl)로 막혔을 때(WAF 403·JS 챌린지·봇 차단) 사용하는 도구. 정책상 허용되는 공개 접근 경로를 순서대로 시도하고, 성공하면 본문 마크다운을, 실패하면 분류된 실패 사유와 시도 이력(attempts)을 재현 가능하게 남긴다. 조사의 근거가 "실제로 중요한 소스"가 아니라 "우연히 열리는 소스"로 좁혀지는 편향을 막는 것이 목적. **경계(NG-1~NG-13, 코드 정책 계층에서 fail-closed 강제, 완화 금지)**: 로그인월·페이월 미돌파(감지·보고만, 종료코드 2), 인증 우회·CAPTCHA 해결·프록시 로테이션·지속 신원 위장 없음, rate limit 존중, SSRF 차단(사설 IP·루프백·메타데이터), 취득 본문 미보관. 순수 표준 라이브러리로 동작(설치 개입 0회), `curl_cffi` 존재 시 브라우저 TLS 임퍼소네이션 추가. SPEC/ADR/인수 테스트로 문서화되고 auto-complete-loop DoD/게이트로 검증됨(plan-docs-full). CLI: `python -m open_reach.engine {fetch|explain|bench|compare|baseline|refresh}`.
+
+Key command: `/open-reach <URL>`
 
 ## Plugin Architecture
 
