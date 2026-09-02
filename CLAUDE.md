@@ -54,8 +54,8 @@ AI 토론 워크플로우. 실제 codex 바이너리를 Bash로 직접 호출해
 
 Key command: `/roundtable <프로젝트 경로 또는 설명>`
 
-### open-reach (v1.0.0)
-리서치 중 공개 소스가 표준 fetch(WebFetch/curl)로 막혔을 때(WAF 403·JS 챌린지·봇 차단) 사용하는 도구. 정책상 허용되는 공개 접근 경로를 순서대로 시도하고, 성공하면 본문 마크다운을, 실패하면 분류된 실패 사유와 시도 이력(attempts)을 재현 가능하게 남긴다. 조사의 근거가 "실제로 중요한 소스"가 아니라 "우연히 열리는 소스"로 좁혀지는 편향을 막는 것이 목적. **경계(NG-1~NG-13, 코드 정책 계층에서 fail-closed 강제, 완화 금지)**: 로그인월·페이월 미돌파(감지·보고만, 종료코드 2), 인증 우회·CAPTCHA 해결·프록시 로테이션·지속 신원 위장 없음, rate limit 존중, SSRF 차단(사설 IP·루프백·메타데이터), 취득 본문 미보관. 순수 표준 라이브러리로 동작(설치 개입 0회), `curl_cffi` 존재 시 브라우저 TLS 임퍼소네이션 추가. SPEC/ADR/인수 테스트로 문서화되고 auto-complete-loop DoD/게이트로 검증됨(plan-docs-full). CLI: `python -m open_reach.engine {fetch|explain|bench|compare|baseline|refresh}`.
+### open-reach (v1.1.0)
+리서치 중 공개 소스가 표준 fetch(WebFetch/curl)로 막혔을 때(WAF 403·JS 챌린지·봇 차단) 사용하는 도구. 정책상 허용되는 공개 접근 경로를 순서대로 시도하고, 성공하면 본문 마크다운을, 실패하면 분류된 실패 사유와 시도 이력(attempts)을 재현 가능하게 남긴다. 조사의 근거가 "실제로 중요한 소스"가 아니라 "우연히 열리는 소스"로 좁혀지는 편향을 막는 것이 목적. **경계(NG-1~NG-13, 코드 정책 계층에서 fail-closed 강제, 완화 금지)**: 로그인월·페이월 미돌파(감지·보고만, 종료코드 2), 인증 우회·CAPTCHA 해결·프록시 로테이션·지속 신원 위장 없음, rate limit 존중, SSRF 차단(사설 IP·루프백·메타데이터), 취득 본문 미보관. 순수 표준 라이브러리로 동작(설치 개입 0회), `curl_cffi` 존재 시 브라우저 TLS 임퍼소네이션 추가. v1.1.0에서 **브라우저 티어(T2·`--allow-browser` opt-in)** 도입 — HTTP 티어(T1)가 JS 챌린지에 막힐 때만 지연 설치 patchright+Chromium으로 폴백해 HTML을 실제 렌더 후 공개 본문 취득. **A8 준수(회피 도구 판정 4항 통과)**: 매 호출 임시 프로필+LIFO 정리(정상·예외·SIGTERM), 지문 위조 없음(자동화 아티팩트 제거만)·행동 시뮬 없음·쿠키/자격증명 미취급, 성공은 '공개 본문 취득'으로만 판정. patchright 미설치 시 `browser_disabled`로 강등(없는 돌파를 지어내지 않음·NG-10). NG-11 프리엠티브 SSRF 가드(`context.route`로 공개→사설→공개 리디렉션 중간 홉 사전 차단). SC-2/5/6(holdout 낙폭 0%p·과적합 없음)/7/8 검증(docs/r3-contract.md), 인수 테스트 us-b-011(동결)+단위 test_browser_tier. SPEC/ADR/인수 테스트로 문서화되고 auto-complete-loop DoD/게이트로 검증됨(plan-docs-full). CLI: `python -m open_reach.engine {fetch|explain|bench|compare|baseline|refresh}`.
 
 Key command: `/open-reach <URL>`
 
