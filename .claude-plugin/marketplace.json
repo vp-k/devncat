@@ -60,6 +60,14 @@
         "url": "https://github.com/vp-k/open-reach.git"
       },
       "description": "공개 소스가 표준 fetch로 막혔을 때 정책상 허용되는 공개 접근 경로를 시도하고 결과·한계·근거를 재현 가능하게 남긴다 (로그인월·페이월 미돌파, SSRF fail-closed)"
+    },
+    {
+      "name": "web-pipeline",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/vp-k/web-pipeline.git"
+      },
+      "description": "웹 프로젝트용 위험 등급(T0–T4) 파이프라인 - 추적되는 작업·실제 검증 증거·승인 게이트·내구성 있는 작업 큐를 프로젝트 로컬 Python 엔진으로 운영"
     }
   ]
 }
